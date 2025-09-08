@@ -1,0 +1,449 @@
+Django REST API E-Commerce Backend Structure (React Frontend)
+=============================================================
+
+ecom_backend/                           # Main project directory
+│
+├── manage.py                           # Django management script
+├── requirements.txt                    # Python dependencies (includes drf-spectacular)
+├── .env                               # Environment variables (not in git)
+├── .env.example                       # Environment variables template
+├── .gitignore                         # Git ignore file
+├── docker-compose.yml                 # Docker configuration with PostgreSQL
+├── Dockerfile                         # Docker image configuration
+├── README.md                          # Project documentation
+├── pytest.ini                        # Pytest configuration
+│
+├── config/                            # Main Django settings directory
+│   ├── __init__.py
+│   ├── settings/                      # Environment-specific settings
+│   │   ├── __init__.py
+│   │   ├── base.py                    # Base settings (DRF, CORS, PostgreSQL)
+│   │   ├── development.py             # Development settings
+│   │   ├── production.py              # Production settings
+│   │   └── testing.py                 # Testing settings
+│   ├── urls.py                        # Main URL configuration (API routes + Swagger)
+│   ├── wsgi.py                        # WSGI application
+│   └── asgi.py                        # ASGI application (WebSocket support)
+│
+├── apps/                              # Django REST API applications
+│   │
+│   ├── authentication/                # JWT Authentication for React
+│   │   ├── __init__.py
+│   │   ├── apps.py
+│   │   ├── models.py                  # Custom User model
+│   │   ├── serializers.py             # Auth serializers (login, register, refresh)
+│   │   ├── views.py                   # APIView classes (no templates)
+│   │   ├── urls.py                    # Auth API endpoints
+│   │   ├── permissions.py             # JWT permissions
+│   │   ├── managers.py                # Custom user manager
+│   │   ├── signals.py                 # User creation signals
+│   │   ├── utils.py                   # JWT utilities
+│   │   ├── tests.py                   # API tests
+│   │   └── migrations/
+│   │       └── __init__.py
+│   │
+│   ├── users/                         # User profile management
+│   │   ├── __init__.py
+│   │   ├── apps.py
+│   │   ├── models.py                  # UserProfile, Address models
+│   │   ├── serializers.py             # Profile serializers
+│   │   ├── viewsets.py                # DRF ViewSets
+│   │   ├── urls.py                    # User API endpoints
+│   │   ├── permissions.py             # Profile permissions
+│   │   ├── filters.py                 # User filtering
+│   │   ├── tests.py
+│   │   └── migrations/
+│   │       └── __init__.py
+│   │
+│   ├── products/                      # Product catalog API
+│   │   ├── __init__.py
+│   │   ├── apps.py
+│   │   ├── models.py                  # Product, Category, Brand, ProductImage
+│   │   ├── serializers.py             # Product serializers with nested data
+│   │   ├── viewsets.py                # Product ViewSets with filtering
+│   │   ├── urls.py                    # Product API endpoints
+│   │   ├── filters.py                 # django-filter integration
+│   │   ├── search.py                  # Full-text search with PostgreSQL
+│   │   ├── pagination.py              # Custom pagination
+│   │   ├── utils.py                   # Product utilities
+│   │   ├── tests.py
+│   │   └── migrations/
+│   │       └── __init__.py
+│   │
+│   ├── cart/                          # Shopping cart API
+│   │   ├── __init__.py
+│   │   ├── apps.py
+│   │   ├── models.py                  # Cart, CartItem models
+│   │   ├── serializers.py             # Cart serializers
+│   │   ├── viewsets.py                # Cart ViewSets
+│   │   ├── urls.py                    # Cart API endpoints
+│   │   ├── utils.py                   # Cart calculations
+│   │   ├── signals.py                 # Cart update signals
+│   │   ├── tests.py
+│   │   └── migrations/
+│   │       └── __init__.py
+│   │
+│   ├── orders/                        # Order management API
+│   │   ├── __init__.py
+│   │   ├── apps.py
+│   │   ├── models.py                  # Order, OrderItem, OrderStatus models
+│   │   ├── serializers.py             # Order serializers
+│   │   ├── viewsets.py                # Order ViewSets
+│   │   ├── urls.py                    # Order API endpoints
+│   │   ├── state_machine.py           # Order state transitions
+│   ││   │   ├── utils.py                   # Order utilities
+│   │   ├── filters.py                 # Order filtering
+│   │   ├── tests.py
+│   │   └── migrations/
+│   │       └── __init__.py
+│   │
+│   ├── payments/                      # Payment processing API
+│   │   ├── __init__.py
+│   │   ├── apps.py
+│   │   ├── models.py                  # Payment, Transaction, Refund models
+│   │   ├── serializers.py             # Payment serializers
+│   │   ├── viewsets.py                # Payment ViewSets
+│   │   ├── urls.py                    # Payment API endpoints
+│   │   ├── processors/                # Payment processors
+│   │   │   ├── __init__.py
+│   │   │   ├── base.py                # Abstract payment processor
+│   │   │   ├── stripe.py              # Stripe integration
+│   │   │   └── paypal.py              # PayPal integration
+│   │   ├── webhooks.py                # Payment webhook handlers
+│   ││   │   ├── utils.py
+│   │   ├── tests.py
+│   │   └── migrations/
+│   │       └── __init__.py
+│   │
+│   ├── inventory/                     # Inventory management API
+│   │   ├── __init__.py
+│   │   ├── apps.py
+│   │   ├── models.py                  # Stock, StockMovement models
+│   │   ├── serializers.py             # Inventory serializers
+│   │   ├── viewsets.py                # Inventory ViewSets
+│   │   ├── urls.py                    # Inventory API endpoints
+│   ││   │   ├── signals.py                 # Stock level signals
+│   │   ├── utils.py
+│   │   ├── tests.py
+│   │   └── migrations/
+│   │       └── __init__.py
+│   │
+│   ├── shipping/                      # Shipping calculation API
+│   │   ├── __init__.py
+│   │   ├── apps.py
+│   │   ├── models.py                  # ShippingMethod, ShippingRate models
+│   │   ├── serializers.py             # Shipping serializers
+│   │   ├── viewsets.py                # Shipping ViewSets
+│   │   ├── urls.py                    # Shipping API endpoints
+│   │   ├── calculators.py             # Shipping cost calculators
+│   │   ├── providers/                 # Shipping providers
+│   │   │   ├── __init__.py
+│   │   │   ├── base.py
+│   │   │   └── fedex.py
+│   │   ├── tests.py
+│   │   └── migrations/
+│   │       └── __init__.py
+│   │
+│   ├── reviews/                       # Product reviews API
+│   │   ├── __init__.py
+│   │   ├── apps.py
+│   │   ├── models.py                  # Review, Rating models
+│   │   ├── serializers.py             # Review serializers
+│   │   ├── viewsets.py                # Review ViewSets
+│   │   ├── urls.py                    # Review API endpoints
+│   │   ├── permissions.py             # Review permissions
+│   │   ├── filters.py                 # Review filtering
+│   │   ├── tests.py
+│   │   └── migrations/
+│   │       └── __init__.py
+│   │
+│   ├── coupons/                       # Coupon system API
+│   │   ├── __init__.py
+│   │   ├── apps.py
+│   │   ├── models.py                  # Coupon, Discount models
+│   │   ├── serializers.py             # Coupon serializers
+│   │   ├── viewsets.py                # Coupon ViewSets
+│   │   ├── urls.py                    # Coupon API endpoints
+│   │   ├── validators.py              # Coupon validation
+│   │   ├── utils.py                   # Discount calculations
+│   │   ├── tests.py
+│   │   └── migrations/
+│   │       └── __init__.py
+│   │
+│   ├── notifications/                 # Notification system API
+│   │   ├── __init__.py
+│   │   ├── apps.py
+│   │   ├── models.py                  # Notification models
+│   │   ├── serializers.py             # Notification serializers
+│   │   ├── viewsets.py                # Notification ViewSets
+│   │   ├── urls.py                    # Notification API endpoints
+│   ││   │   ├── providers/                 # Notification providers
+│   │   │   ├── __init__.py
+│   │   │   ├── email.py               # Email provider
+│   │   │   └── sms.py                 # SMS provider
+│   │   ├── utils.py
+│   │   ├── tests.py
+│   │   └── migrations/
+│   │       └── __init__.py
+│   │
+│   ├── analytics/                     # Analytics and reporting API
+│   │   ├── __init__.py
+│   │   ├── apps.py
+│   │   ├── models.py                  # Analytics event models
+│   │   ├── serializers.py             # Analytics serializers
+│   │   ├── viewsets.py                # Analytics ViewSets
+│   │   ├── urls.py                    # Analytics API endpoints
+│   │   ├── collectors.py              # Data collectors
+│   │   ├── aggregators.py             # Data aggregation
+│   │   ├── reports.py                 # Report generators
+│   │   ├── tests.py
+│   │   └── migrations/
+│   │       └── __init__.py
+│   │
+│   └── core/                          # Shared utilities and base classes
+│       ├── __init__.py
+│       ├── models.py                  # Abstract base models with timestamps
+│       ├── serializers.py             # Base serializers
+│       ├── viewsets.py                # Base ViewSets
+│       ├── permissions.py             # Custom DRF permissions
+│       ├── pagination.py              # Custom pagination classes
+│       ├── renderers.py               # Custom JSON renderers
+│       ├── throttling.py              # API rate limiting
+│       ├── exceptions.py              # Custom API exceptions
+│       ├── validators.py              # Custom field validators
+│       ├── filters.py                 # Base filter classes
+│       ├── mixins.py                  # ViewSet mixins
+│       ├── utils.py                   # Utility functions
+│       └── middleware.py              # CORS and security middleware
+│
+├── media/                             # User uploaded files (served via CDN in prod)
+│   ├── products/                      # Product images
+│   ├── users/                         # User avatars
+│   └── temp/                          # Temporary uploads
+│
+├── email_templates/                   # Email templates (HTML only, no Django templates)
+│   ├── order_confirmation.html        # Order confirmation email
+│   ├── password_reset.html            # Password reset email
+│   ├── welcome.html                   # Welcome email
+│   └── shipping_notification.html     # Shipping notification
+│
+├── fixtures/                          # Database fixtures
+│   ├── categories.json                # Initial categories
+│   ├── shipping_methods.json          # Shipping methods
+│   └── users.json                     # Test users
+│
+├── scripts/                           # Management and utility scripts
+│   ├── __init__.py
+│   ├── setup_db.py                    # Database setup script
+│   ├── populate_test_data.py          # Test data population
+│   ├── backup_restore.py              # Database backup/restore
+│   └── deploy.py                      # Deployment script
+│
+├── tests/                             # Centralized test files
+│   ├── __init__.py
+│   ├── conftest.py                    # Pytest fixtures and configuration
+│   ├── factories.py                   # Factory Boy model factories
+│   ├── test_api/                      # API endpoint tests
+│   │   ├── __init__.py
+│   │   ├── test_auth.py
+│   │   ├── test_products.py
+│   │   ├── test_orders.py
+│   │   └── test_payments.py
+│   ├── test_integration/              # Integration tests
+│   │   ├── __init__.py
+│   │   └── test_order_flow.py
+│   └── test_performance/              # Performance tests
+│       ├── __init__.py
+│       └── test_api_performance.py
+│
+├── docs/                              # API documentation
+│   ├── api_schema.yml                 # Auto-generated OpenAPI 3.0 schema
+│   ├── swagger_customization.css      # Custom Swagger UI styling
+│   ├── swagger_customization.js       # Custom Swagger UI behavior
+│   ├── README.md                      # Setup instructions
+│   ├── deployment.md                  # Deployment guide
+│   ├── api_endpoints.md               # Additional API documentation
+│   └── database_schema.md             # Database schema documentation
+│
+└── logs/                              # Application logs
+    ├── django.log
+    ├── api_requests.log
+    └── errors.log
+
+API ARCHITECTURE FOR REACT FRONTEND
+===================================
+
+1. API-FIRST DESIGN PRINCIPLES:
+   - Pure JSON REST API (no HTML rendering)
+   - Stateless authentication with JWT tokens
+   - CORS configuration for React frontend
+   - Comprehensive error handling with proper HTTP status codes
+   - API versioning strategy (/api/v1/, /api/v2/)
+
+2. TECHNOLOGY STACK:
+   - Django 4.2+ with Django REST Framework
+   - PostgreSQL 14+ database
+   - Redis for caching and session storage
+   - JWT for authentication
+   - django-cors-headers for CORS handling
+   - drf-spectacular for OpenAPI 3.0 schema and Swagger UI
+
+3. KEY API ENDPOINTS:
+
+   AUTHENTICATION:
+   POST /api/v1/auth/register/         # User registration
+   POST /api/v1/auth/login/            # Login (returns JWT tokens)
+   POST /api/v1/auth/refresh/          # Token refresh
+   POST /api/v1/auth/logout/           # Token blacklisting
+   POST /api/v1/auth/password-reset/   # Password reset request
+
+   PRODUCTS:
+   GET  /api/v1/products/              # List products with filters
+   GET  /api/v1/products/{id}/         # Product details
+   GET  /api/v1/categories/            # Product categories
+   GET  /api/v1/products/search/       # Product search
+
+   CART:
+   GET    /api/v1/cart/                # Get user cart
+   POST   /api/v1/cart/items/          # Add item to cart
+   PUT    /api/v1/cart/items/{id}/     # Update cart item
+   DELETE /api/v1/cart/items/{id}/     # Remove cart item
+
+   ORDERS:
+   GET  /api/v1/orders/                # List user orders
+   POST /api/v1/orders/                # Create order
+   GET  /api/v1/orders/{id}/           # Order details
+   PUT  /api/v1/orders/{id}/cancel/    # Cancel order
+
+   PAYMENTS:
+   POST /api/v1/payments/              # Process payment
+   GET  /api/v1/payments/{id}/         # Payment status
+   POST /api/v1/payments/webhooks/     # Payment webhooks
+
+   API DOCUMENTATION:
+   GET  /api/docs/                     # Swagger UI interface
+   GET  /api/schema/                   # OpenAPI 3.0 schema (JSON)
+   GET  /api/schema/download/          # Download OpenAPI schema
+   GET  /api/redoc/                    # ReDoc documentation interface
+
+4. DATABASE DESIGN (PostgreSQL):
+   - JSONB fields for flexible product attributes
+   - Full-text search indexes
+   - Proper foreign key constraints
+   - Database-level constraints for data integrity
+   - Optimized indexes for API queries
+
+5. AUTHENTICATION FLOW:
+   - JWT access token (15 minutes expiry)
+   - JWT refresh token (7 days expiry)
+   - Token blacklisting on logout
+   - Automatic token refresh in React
+   - Role-based permissions (Customer, Staff, Admin)
+
+6. API FEATURES:
+   - Pagination for all list endpoints
+   - Filtering and sorting capabilities
+   - Comprehensive serializer validation
+   - Nested serialization for related data
+   - Bulk operations where appropriate
+   - Rate limiting and throttling
+
+7. CACHING STRATEGY:
+   - Redis for session and cart storage
+   - Database query caching
+   - API response caching for static data
+   - Cache invalidation on data updates
+
+8. ERROR HANDLING:
+   - Consistent error response format
+   - Proper HTTP status codes
+   - Detailed validation errors
+   - Logging and monitoring
+
+9. SECURITY MEASURES:
+   - CORS configuration for React app
+   - CSRF protection (for non-API endpoints)
+   - SQL injection prevention
+   - Rate limiting per user/IP
+   - Secure file upload handling
+   - Environment-based secrets
+
+10. DEPLOYMENT CONSIDERATIONS:
+    - Docker containerization
+    - PostgreSQL connection pooling
+    - Static file serving via CDN
+    - Health check endpoints
+    - Monitoring and logging setup
+
+This structure is optimized for a React frontend consuming JSON APIs, with PostgreSQL as the database backend. It eliminates template rendering and focuses on efficient API design patterns.
+
+SWAGGER/API DOCUMENTATION IMPLEMENTATION
+=======================================
+
+1. DRF-SPECTACULAR INTEGRATION:
+   - Auto-generates OpenAPI 3.0 schema from DRF serializers and views
+   - Provides interactive Swagger UI at /api/docs/
+   - Alternative ReDoc interface at /api/redoc/
+   - Schema available at /api/schema/ (JSON format)
+
+2. CONFIGURATION SETUP:
+   - Add 'drf_spectacular' to INSTALLED_APPS in base.py
+   - Configure REST_FRAMEWORK settings for schema generation
+   - Set up URL patterns for documentation endpoints
+   - Custom schema info (title, version, description)
+
+3. REQUIREMENTS.TXT ADDITIONS:
+   drf-spectacular==0.26.5         # OpenAPI 3.0 schema generation
+   drf-spectacular[sidecar]==0.26.5  # Offline Swagger UI assets
+
+4. SETTINGS CONFIGURATION (config/settings/base.py):
+   SPECTACULAR_SETTINGS = {
+       'TITLE': 'E-Commerce API',
+       'DESCRIPTION': 'REST API for E-Commerce Platform',
+       'VERSION': '1.0.0',
+       'SERVE_INCLUDE_SCHEMA': False,
+       'COMPONENT_SPLIT_REQUEST': True,
+       'SCHEMA_PATH_PREFIX': '/api/v1/',
+   }
+
+5. URL CONFIGURATION (config/urls.py):
+   from drf_spectacular.views import (
+       SpectacularAPIView,
+       SpectacularSwaggerView,
+       SpectacularRedocView
+   )
+   
+   urlpatterns = [
+       path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
+       path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema')),
+       path('api/redoc/', SpectacularRedocView.as_view(url_name='schema')),
+   ]
+
+6. SERIALIZER DOCUMENTATION:
+   - Use docstrings in serializers for field descriptions
+   - Add examples using drf_spectacular.utils.extend_schema_serializer
+   - Custom field documentation with help_text
+
+7. VIEW DOCUMENTATION:
+   - @extend_schema decorators on ViewSet methods
+   - Custom response examples and descriptions
+   - Parameter documentation for filtering/pagination
+   - Authentication requirements documentation
+
+8. CUSTOM SWAGGER STYLING:
+   - Custom CSS for branding (docs/swagger_customization.css)
+   - Custom JavaScript for enhanced functionality
+   - Company logo and color scheme integration
+
+9. SECURITY CONSIDERATIONS:
+   - Documentation endpoints disabled in production (optional)
+   - Authentication required for accessing documentation
+   - API key examples and security scheme documentation
+
+10. DEVELOPMENT WORKFLOW:
+    - Auto-refresh schema during development
+    - Integration with CI/CD for schema validation
+    - Version control for schema files
+    - Export schema for frontend team integration
+
+This comprehensive API documentation setup ensures that your React frontend team has complete, interactive documentation for all API endpoints, making integration seamless and reducing development time.
