@@ -181,7 +181,7 @@ SPECTACULAR_SETTINGS = {
 }
 
 # Custom user model (will be enabled once User model is created)
-# AUTH_USER_MODEL = 'authentication.User'
+AUTH_USER_MODEL = 'users.User'
 
 # Media files
 MEDIA_URL = '/media/'
