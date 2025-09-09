@@ -63,42 +63,60 @@ A modern, scalable Django REST API backend for e-commerce applications built wit
 ```
 ecom_backend/
 ├── apps/                          # Django applications
+│   ├── __init__.py                # Apps package initializer
 │   ├── authentication/            # 🔐 Complete JWT auth system
-│   │   ├── models.py              # Auth models (tokens, sessions, attempts)
-│   │   ├── admin.py               # Security monitoring dashboard
-│   │   └── migrations/            # Database schema
+│   │   ├── models.py              # Auth models (EmailVerificationToken, PasswordResetToken, LoginAttempt, UserSession)
+│   │   ├── serializers.py         # Auth serializers (RegisterSerializer, LoginSerializer, etc.)
+│   │   ├── views.py               # Auth views (RegisterView, LoginView, VerifyEmailView, etc.)
+│   │   ├── urls.py                # Auth URL patterns (/register/, /login/, /verify-email/, etc.)
+│   │   ├── admin.py               # Security monitoring dashboard with visual indicators
+│   │   └── migrations/            # Database schema for auth models
 │   ├── users/                     # 👤 User management system  
-│   │   ├── models/                # User models (user, address, relationships)
-│   │   │   ├── user.py            # Extended User model
-│   │   │   ├── address.py         # Address management
-│   │   │   └── user_address.py    # User-address relationships
-│   │   ├── admin.py               # User management interface
-│   │   ├── tests.py               # Comprehensive test suite
-│   │   └── migrations/            # Database schema
-│   ├── products/                  # Product catalog API
-│   ├── cart/                      # Shopping cart API
-│   ├── orders/                    # Order management API
-│   ├── payments/                  # Payment processing API
-│   ├── inventory/                 # Inventory management API
-│   ├── shipping/                  # Shipping calculation API
-│   ├── reviews/                   # Product reviews API
-│   ├── coupons/                   # Coupon system API
-│   ├── notifications/             # Notification system API
-│   ├── analytics/                 # Analytics and reporting API
+│   │   ├── models/                # User models package
+│   │   │   ├── __init__.py        # Models package exports
+│   │   │   ├── user.py            # Extended User model with addresses relationship
+│   │   │   ├── address.py         # Address model with kinds (shipping/billing/other)
+│   │   │   └── user_address.py    # Through model for User-Address M2M relationship
+│   │   ├── admin.py               # User management interface with address inlines
+│   │   ├── tests.py               # Comprehensive test suite (8 tests covering relationships)
+│   │   ├── urls.py                # User URL patterns (placeholder)
+│   │   └── migrations/            # Database schema for user models
+│   ├── products/                  # Product catalog API (placeholder)
+│   ├── cart/                      # Shopping cart API (placeholder)
+│   ├── orders/                    # Order management API (placeholder)
+│   ├── payments/                  # Payment processing API (placeholder)
+│   ├── inventory/                 # Inventory management API (placeholder)
+│   ├── shipping/                  # Shipping calculation API (placeholder)
+│   ├── reviews/                   # Product reviews API (placeholder)
+│   ├── coupons/                   # Coupon system API (placeholder)
+│   ├── notifications/             # Notification system API (placeholder)
+│   ├── analytics/                 # Analytics and reporting API (placeholder)
 │   └── core/                      # Shared utilities and health check
+│       ├── models.py              # Core models (placeholder)
+│       ├── views.py               # HealthCheckView with database connectivity check
+│       └── urls.py                # Health check URL pattern
 ├── config/                        # Django configuration
 │   ├── settings/                  # Environment-specific settings
-│   │   ├── base.py               # Base configuration
-│   │   ├── development.py        # Development settings
-│   │   ├── production.py         # Production settings
+│   │   ├── __init__.py           # Settings package
+│   │   ├── base.py               # Base configuration with AUTH_USER_MODEL
+│   │   ├── development.py        # Development settings (SQLite, CORS_ALLOW_ALL_ORIGINS)
+│   │   ├── production.py         # Production settings (PostgreSQL)
 │   │   └── testing.py            # Test settings
-│   ├── urls.py                   # Main URL configuration
+│   ├── urls.py                   # Main URL configuration with /api/v1/auth/ routes
 │   ├── wsgi.py                   # WSGI configuration
 │   └── asgi.py                   # ASGI configuration
 ├── media/                         # User uploaded files
-├── docs/                          # API documentation
-├── tests/                         # Test files
-├── requirements.txt               # Python dependencies
+├── docs/                          # API documentation  
+├── tests/                         # Global test files
+├── fixtures/                      # Test data fixtures
+├── email_templates/               # Email templates (for verification emails)
+├── logs/                          # Application logs
+├── scripts/                       # Utility scripts
+├── requirements.txt               # Python dependencies (Django 5.2+, DRF, JWT, etc.)
+├── pytest.ini                    # Pytest configuration
+├── .env                          # Environment variables (not in git)
+├── .env.example                  # Environment template
+├── db.sqlite3                    # Development database
 └── manage.py                      # Django management script
 ```
 
@@ -221,7 +239,6 @@ curl -X POST http://localhost:8000/api/v1/auth/register/ \
     "email": "test@example.com",
     "username": "testuser",
     "password": "SecurePass123",
-    "password_confirm": "SecurePass123",
     "first_name": "Test",
     "last_name": "User"
   }'
@@ -338,7 +355,6 @@ const registerResponse = await fetch('/api/v1/auth/register/', {
     email: 'user@example.com',
     username: 'johndoe',
     password: 'SecurePassword123',
-    password_confirm: 'SecurePassword123',
     first_name: 'John',
     last_name: 'Doe',
     phone: '+212600123456'

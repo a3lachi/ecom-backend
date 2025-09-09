@@ -13,15 +13,11 @@ class RegisterSerializer(serializers.ModelSerializer):
         validators=[validate_password],
         style={'input_type': 'password'}
     )
-    password_confirm = serializers.CharField(
-        write_only=True,
-        style={'input_type': 'password'}
-    )
     
     class Meta:
         model = User
         fields = (
-            'email', 'username', 'password', 'password_confirm',
+            'email', 'username', 'password',
             'first_name', 'last_name', 'phone'
         )
         extra_kwargs = {
@@ -31,13 +27,6 @@ class RegisterSerializer(serializers.ModelSerializer):
             'last_name': {'required': False},
             'phone': {'required': False},
         }
-    
-    def validate(self, attrs):
-        if attrs['password'] != attrs['password_confirm']:
-            raise serializers.ValidationError(
-                {"password_confirm": _("Password fields didn't match.")}
-            )
-        return attrs
     
     def validate_email(self, value):
         if User.objects.filter(email__iexact=value).exists():
@@ -54,9 +43,6 @@ class RegisterSerializer(serializers.ModelSerializer):
         return value.lower()
     
     def create(self, validated_data):
-        # Remove password_confirm from validated data
-        validated_data.pop('password_confirm', None)
-        
         # Create inactive user
         user = User.objects.create_user(
             email=validated_data['email'],
@@ -186,14 +172,6 @@ class PasswordResetSerializer(serializers.Serializer):
         validators=[validate_password],
         style={'input_type': 'password'}
     )
-    password_confirm = serializers.CharField(style={'input_type': 'password'})
-    
-    def validate(self, attrs):
-        if attrs['password'] != attrs['password_confirm']:
-            raise serializers.ValidationError(
-                {"password_confirm": _("Password fields didn't match.")}
-            )
-        return attrs
     
     def validate_token(self, value):
         try:
@@ -224,14 +202,6 @@ class ChangePasswordSerializer(serializers.Serializer):
         validators=[validate_password],
         style={'input_type': 'password'}
     )
-    new_password_confirm = serializers.CharField(style={'input_type': 'password'})
-    
-    def validate(self, attrs):
-        if attrs['new_password'] != attrs['new_password_confirm']:
-            raise serializers.ValidationError(
-                {"new_password_confirm": _("Password fields didn't match.")}
-            )
-        return attrs
     
     def validate_current_password(self, value):
         user = self.context['request'].user
