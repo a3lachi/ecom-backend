@@ -11,6 +11,13 @@ class User(AbstractUser):
     locale = models.CharField(max_length=10, default="fr")
     timezone = models.CharField(max_length=50, default="Africa/Casablanca")
 
+    addresses = models.ManyToManyField(
+        "users.Address",
+        through="users.UserAddress",
+        related_name="address_users",
+        blank=True,
+    )
+
     class Meta:
         constraints = [
             # Case-insensitive unique email on Postgres
@@ -19,3 +26,16 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.username or self.email
+    
+    @property
+    def default_address(self):
+        """Get user's default address"""
+        try:
+            user_address = self.useraddress_set.filter(is_default=True).first()
+            return user_address.address if user_address else None
+        except:
+            return None
+    
+    def get_addresses_by_kind(self, kind):
+        """Get addresses filtered by kind (shipping, billing, etc.)"""
+        return self.addresses.filter(kind=kind)
