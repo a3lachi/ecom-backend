@@ -14,6 +14,12 @@ from .serializers import (
     PasswordResetRequestSerializer, PasswordResetSerializer,
     ChangePasswordSerializer
 )
+from .session_utils import (
+    enforce_max_sessions_per_user, 
+    detect_suspicious_session_activity, 
+    log_session_activity,
+    get_session_stats
+)
 
 User = get_user_model()
 
@@ -33,13 +39,14 @@ def get_user_agent(request):
 def create_user_session(user, request, jti=None):
     """Create a user session record"""
     import uuid
-    return UserSession.objects.create(
+    session = UserSession.objects.create(
         user=user,
         session_key=str(uuid.uuid4()),  # Generate unique session key
         device_info=get_user_agent(request)[:500],  # Truncate if too long
         ip_address=get_client_ip(request),
         jti=jti or ''
     )
+    return session
 
 def log_security_attempt(request, attempt_type, email=None, user=None, success=False, failure_reason=''):
     """Log security attempt for monitoring"""
@@ -176,7 +183,20 @@ class LoginView(APIView):
             access = refresh.access_token
             
             # Create user session
-            create_user_session(user, request, jti=str(refresh['jti']))
+            session = create_user_session(user, request, jti=str(refresh['jti']))
+            
+            # Enforce max sessions per user
+            enforce_max_sessions_per_user(user)
+            
+            # Detect suspicious activity
+            if detect_suspicious_session_activity(user, request):
+                log_session_activity(user, 'suspicious_login_detected', request)
+            
+            # Log session activity
+            log_session_activity(user, 'login_success', request, {
+                'session_id': session.id,
+                'device_info': session.device_info[:100]  # Truncate for logs
+            })
             
             # Log successful login
             log_security_attempt(request, attempt_type=SecurityAttempt.AttemptType.LOGIN, user=user, success=True)
@@ -342,20 +362,32 @@ class LogoutView(APIView):
         try:
             refresh_token = request.data.get('refresh')
             if refresh_token:
-                token = RefreshToken(refresh_token)
-                token.blacklist()
-                
-                # Deactivate user session
-                UserSession.objects.filter(
-                    user=request.user,
-                    jti=str(token['jti']),
-                    is_active=True
-                ).update(is_active=False)
+                try:
+                    token = RefreshToken(refresh_token)
+                    token.blacklist()
+                    
+                    # Deactivate user session
+                    deactivated_count = UserSession.objects.filter(
+                        user=request.user,
+                        jti=str(token['jti']),
+                        is_active=True
+                    ).update(is_active=False)
+                    
+                except Exception as token_error:
+                    # Log the error but still return success for security
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.warning(f"Logout token error for user {request.user.email}: {str(token_error)}")
             
             return Response({
                 'message': 'Successfully logged out.'
             }, status=status.HTTP_200_OK)
-        except Exception:
+        except Exception as e:
+            # Log unexpected errors but still return success
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Unexpected logout error for user {getattr(request.user, 'email', 'unknown')}: {str(e)}")
+            
             return Response({
                 'message': 'Successfully logged out.'
             }, status=status.HTTP_200_OK)
@@ -382,7 +414,7 @@ class ChangePasswordView(APIView):
             
             return Response({
                 'message': 'Password changed successfully.'
-            })
+            }, status=status.HTTP_200_OK)
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -436,7 +468,7 @@ class UserSessionListView(APIView):
                 'is_current': session.jti == current_jti
             })
         
-        return Response(session_data)
+        return Response(session_data, status=status.HTTP_200_OK)
 
 
 class DeactivateSessionView(APIView):
@@ -462,7 +494,7 @@ class DeactivateSessionView(APIView):
             
             return Response({
                 'message': 'Session deactivated successfully.'
-            })
+            }, status=status.HTTP_200_OK)
         except UserSession.DoesNotExist:
             return Response({
                 'error': 'Session not found or already deactivated.'
@@ -500,4 +532,44 @@ class DeactivateAllSessionsView(APIView):
         
         return Response({
             'message': f'Deactivated {count} sessions successfully.'
-        })
+        }, status=status.HTTP_200_OK)
+
+
+class UserSessionStatsView(APIView):
+    """Get user session statistics"""
+    permission_classes = [IsAuthenticated]
+    
+    @extend_schema(
+        summary="Get Session Statistics",
+        description="Get session statistics and security info for the authenticated user.",
+        responses={
+            200: OpenApiResponse(
+                description="Session statistics",
+                response={
+                    "type": "object",
+                    "properties": {
+                        "active_sessions": {"type": "integer"},
+                        "total_sessions": {"type": "integer"},
+                        "max_allowed": {"type": "integer"},
+                        "expire_days": {"type": "integer"},
+                        "security_settings": {"type": "object"}
+                    }
+                }
+            )
+        }
+    )
+    def get(self, request):
+        stats = get_session_stats(request.user)
+        
+        # Add security settings info
+        from django.conf import settings
+        session_security = getattr(settings, 'SESSION_SECURITY', {})
+        
+        stats['security_settings'] = {
+            'max_sessions_enforced': session_security.get('MAX_SESSIONS_PER_USER', 0) > 0,
+            'auto_cleanup_enabled': session_security.get('AUTO_CLEANUP_SESSIONS', True),
+            'activity_logging_enabled': session_security.get('LOG_SESSION_ACTIVITIES', True),
+            'suspicious_activity_detection': session_security.get('FORCE_LOGOUT_ON_SUSPICIOUS_ACTIVITY', True),
+        }
+        
+        return Response(stats, status=status.HTTP_200_OK)

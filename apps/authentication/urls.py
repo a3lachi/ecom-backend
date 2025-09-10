@@ -1,10 +1,11 @@
 from django.urls import path
-from rest_framework_simplejwt.views import TokenRefreshView
 from .views import (
     RegisterView, LoginView, LogoutView, VerifyEmailView,
     ResendVerificationView, ChangePasswordView,
-    UserSessionListView, DeactivateSessionView, DeactivateAllSessionsView
+    UserSessionListView, DeactivateSessionView, DeactivateAllSessionsView,
+    UserSessionStatsView
 )
+from .token_views import SessionAwareTokenRefreshView
 
 urlpatterns = [
     # Registration & Email Verification
@@ -15,13 +16,14 @@ urlpatterns = [
     # Login & JWT Management
     path('login/', LoginView.as_view(), name='login'),
     path('logout/', LogoutView.as_view(), name='logout'),
-    path('refresh/', TokenRefreshView.as_view(), name='token-refresh'),
+    path('refresh/', SessionAwareTokenRefreshView.as_view(), name='token-refresh'),
     
     # Password Management
     path('change-password/', ChangePasswordView.as_view(), name='change-password'),
     
     # Session Management
     path('sessions/', UserSessionListView.as_view(), name='user-sessions'),
+    path('sessions/stats/', UserSessionStatsView.as_view(), name='user-session-stats'),
     path('sessions/<int:session_id>/deactivate/', DeactivateSessionView.as_view(), name='deactivate-session'),
     path('sessions/deactivate-all/', DeactivateAllSessionsView.as_view(), name='deactivate-all-sessions'),
     

@@ -18,13 +18,32 @@ class SessionAwareJWTAuthentication(JWTAuthentication):
         user, validated_token = result
         
         # Check if the session associated with this token is still active
+        # Access tokens don't have JTI by default, so we check by user and active sessions
         jti = validated_token.get('jti')
-        if jti and not UserSession.objects.filter(
-            user=user,
-            jti=jti,
-            is_active=True
-        ).exists():
-            # Session has been deactivated, force re-authentication
-            raise InvalidToken("Session has been terminated")
+        
+        # Debug: Print token info for testing
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.debug(f"SessionAware auth - User: {user.email}, JTI: {jti}")
+        
+        # If there's a JTI, check for exact match (for refresh tokens)
+        if jti:
+            session_exists = UserSession.objects.filter(
+                user=user,
+                jti=jti,
+                is_active=True
+            ).exists()
+            logger.debug(f"JTI session exists: {session_exists}")
+            if not session_exists:
+                raise InvalidToken("Session has been terminated")
+        else:
+            # For access tokens without JTI, check if user has any active sessions
+            active_sessions = UserSession.objects.filter(
+                user=user,
+                is_active=True
+            ).count()
+            logger.debug(f"Active sessions for user: {active_sessions}")
+            if active_sessions == 0:
+                raise InvalidToken("No active sessions found")
             
         return user, validated_token

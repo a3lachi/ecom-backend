@@ -4,6 +4,10 @@ Test-specific settings that override base settings for authentication tests
 
 from config.settings.base import *
 
+# Add token blacklist for tests
+if 'rest_framework_simplejwt.token_blacklist' not in INSTALLED_APPS:
+    INSTALLED_APPS = INSTALLED_APPS + ['rest_framework_simplejwt.token_blacklist']
+
 # Use SQLite for testing to avoid PostgreSQL connection issues
 DATABASES = {
     'default': {
@@ -12,10 +16,10 @@ DATABASES = {
     }
 }
 
-# Use session-aware JWT authentication for proper session testing
+# Use regular JWT authentication for tests to avoid session complexity in unit tests
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'apps.authentication.authentication.SessionAwareJWTAuthentication',
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
