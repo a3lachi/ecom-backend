@@ -279,7 +279,7 @@ class SecurityTestCase(AuthenticationTestSetup):
         self.assertEqual(attempt.ip_address, '127.0.0.1')
     
     def test_session_aware_authentication(self):
-        """Test that deactivated sessions are tracked (regular JWT doesn't enforce sessions)"""
+        """Test that deactivated sessions are properly blocked by SessionAwareJWTAuthentication"""
         tokens = self.authenticate_user()
         
         # Get and deactivate the session
@@ -294,8 +294,7 @@ class SecurityTestCase(AuthenticationTestSetup):
         session.refresh_from_db()
         self.assertFalse(session.is_active)
         
-        # With regular JWT authentication (used in tests), deactivated sessions
-        # don't block access - that requires SessionAwareJWTAuthentication
+        # With SessionAwareJWTAuthentication, deactivated sessions should block access
         url = reverse('change-password')
         data = {
             'current_password': 'ExistingPassword123!',
@@ -303,5 +302,5 @@ class SecurityTestCase(AuthenticationTestSetup):
         }
         response = self.client.post(url, data)
         
-        # Should succeed with regular JWT (session enforcement disabled in tests)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # Should fail with SessionAwareJWTAuthentication (session enforcement enabled)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)

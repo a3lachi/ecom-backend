@@ -164,6 +164,13 @@ SIMPLE_JWT = {
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
     'UPDATE_LAST_LOGIN': True,  # Update last_login field on login
+    
+    # Session management - Include JTI in access tokens
+    'INCLUDE_JTI': True,  # Include JTI in both access and refresh tokens
+    
+    # Token claims
+    'TOKEN_OBTAIN_SERIALIZER': 'rest_framework_simplejwt.serializers.TokenObtainPairSerializer',
+    'TOKEN_REFRESH_SERIALIZER': 'rest_framework_simplejwt.serializers.TokenRefreshSerializer',
 }
 
 # Session-Based Security Settings

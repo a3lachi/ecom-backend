@@ -36,15 +36,16 @@ def get_user_agent(request):
     """Get user agent from request"""
     return request.META.get('HTTP_USER_AGENT', '')
 
-def create_user_session(user, request, jti=None):
-    """Create a user session record"""
+def create_user_session(user, request, refresh_jti=None, access_jti=None):
+    """Create a user session record with both refresh and access JTIs"""
     import uuid
     session = UserSession.objects.create(
         user=user,
         session_key=str(uuid.uuid4()),  # Generate unique session key
         device_info=get_user_agent(request)[:500],  # Truncate if too long
         ip_address=get_client_ip(request),
-        jti=jti or ''
+        jti=refresh_jti or '',
+        access_jti=access_jti or ''
     )
     return session
 
@@ -182,8 +183,13 @@ class LoginView(APIView):
             refresh = RefreshToken.for_user(user)
             access = refresh.access_token
             
-            # Create user session
-            session = create_user_session(user, request, jti=str(refresh['jti']))
+            # Create user session with both JTIs
+            session = create_user_session(
+                user, 
+                request, 
+                refresh_jti=str(refresh['jti']),
+                access_jti=str(access['jti'])
+            )
             
             # Enforce max sessions per user
             enforce_max_sessions_per_user(user)

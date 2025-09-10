@@ -174,11 +174,16 @@ class UserSession(models.Model):
     last_activity = models.DateTimeField(auto_now=True)
     is_active = models.BooleanField(default=True)
     
-    # JWT token information
+    # JWT token information  
     jti = models.CharField(
         max_length=255, 
         blank=True,
-        help_text="JWT token identifier"
+        help_text="Refresh token JTI - used for token refresh validation"
+    )
+    access_jti = models.CharField(
+        max_length=255, 
+        blank=True,
+        help_text="Current access token JTI - updated on token refresh"
     )
     
     class Meta:

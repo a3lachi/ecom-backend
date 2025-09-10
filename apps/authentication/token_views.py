@@ -35,14 +35,19 @@ class SessionAwareTokenRefreshView(TokenRefreshView):
                 response = super().post(request, *args, **kwargs)
                 
                 if response.status_code == 200:
-                    # Update session with new JTI
+                    # Update session with new JTIs for both refresh and access tokens
                     new_refresh_token = response.data.get('refresh')
-                    if new_refresh_token:
-                        new_token = RefreshToken(new_refresh_token)
-                        new_jti = str(new_token['jti'])
+                    new_access_token = response.data.get('access')
+                    
+                    if new_refresh_token and new_access_token:
+                        new_refresh = RefreshToken(new_refresh_token)
+                        # Access token JTI needs to be extracted differently
+                        from rest_framework_simplejwt.tokens import UntypedToken
+                        access_payload = UntypedToken(new_access_token).payload
                         
-                        session.jti = new_jti
-                        session.save(update_fields=['jti', 'last_activity'])
+                        session.jti = str(new_refresh['jti'])
+                        session.access_jti = access_payload.get('jti', '')
+                        session.save(update_fields=['jti', 'access_jti', 'last_activity'])
                 
                 return response
                 

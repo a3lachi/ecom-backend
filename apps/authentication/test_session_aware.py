@@ -46,13 +46,14 @@ class SessionAwareAuthenticationTestCase(APITestCase):
         refresh = RefreshToken.for_user(self.user)
         access = refresh.access_token
         
-        # Create user session with JTI
+        # Create user session with both JTIs
         session = UserSession.objects.create(
             user=self.user,
             session_key='test-session',
             device_info='Test Device',
             ip_address='127.0.0.1',
-            jti=str(refresh['jti'])
+            jti=str(refresh['jti']),
+            access_jti=str(access['jti'])
         )
         
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {str(access)}')
