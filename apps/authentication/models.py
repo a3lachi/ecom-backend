@@ -77,14 +77,26 @@ class PasswordResetToken(models.Model):
     def __str__(self):
         return f"Password reset for {self.user.email}"
 
-class LoginAttempt(models.Model):
-    """Track login attempts for security monitoring"""
+class SecurityAttempt(models.Model):
+    """Track security attempts (login, registration, etc.) for monitoring"""
+    
+    class AttemptType(models.TextChoices):
+        LOGIN = 'login', 'Login'
+        REGISTER = 'register', 'Registration'
+        PASSWORD_RESET = 'password_reset', 'Password Reset'
+        EMAIL_VERIFICATION = 'email_verification', 'Email Verification'
+    
+    attempt_type = models.CharField(
+        max_length=20, 
+        choices=AttemptType.choices,
+        default=AttemptType.LOGIN
+    )
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, 
         on_delete=models.CASCADE, 
         null=True, 
         blank=True,
-        help_text="User if login was successful or user exists"
+        help_text="User if attempt was successful or user exists"
     )
     ip_address = models.GenericIPAddressField()
     user_agent = models.TextField()
@@ -92,7 +104,7 @@ class LoginAttempt(models.Model):
     timestamp = models.DateTimeField(auto_now_add=True)
     email_attempted = models.EmailField(
         blank=True,
-        help_text="Email used in login attempt"
+        help_text="Email used in the attempt"
     )
     failure_reason = models.CharField(
         max_length=100,
@@ -103,6 +115,9 @@ class LoginAttempt(models.Model):
             ('account_locked', 'Account Locked'),
             ('account_inactive', 'Account Inactive'),
             ('too_many_attempts', 'Too Many Attempts'),
+            ('validation_error', 'Validation Error'),
+            ('invalid_token', 'Invalid Token'),
+            ('expired_token', 'Expired Token'),
         ]
     )
     
@@ -111,34 +126,43 @@ class LoginAttempt(models.Model):
             models.Index(fields=['ip_address', 'timestamp']),
             models.Index(fields=['user', 'timestamp']),
             models.Index(fields=['success', 'timestamp']),
+            models.Index(fields=['attempt_type', 'timestamp']),
         ]
         ordering = ['-timestamp']
     
     @classmethod
-    def is_ip_blocked(cls, ip_address, minutes=15, max_attempts=5):
+    def is_ip_blocked(cls, ip_address, attempt_type=None, minutes=15, max_attempts=5):
         """Check if IP should be blocked due to too many failed attempts"""
         since = timezone.now() - timedelta(minutes=minutes)
-        failed_attempts = cls.objects.filter(
-            ip_address=ip_address,
-            success=False,
-            timestamp__gte=since
-        ).count()
+        query_filter = {
+            'ip_address': ip_address,
+            'success': False,
+            'timestamp__gte': since
+        }
+        if attempt_type:
+            query_filter['attempt_type'] = attempt_type
+            
+        failed_attempts = cls.objects.filter(**query_filter).count()
         return failed_attempts >= max_attempts
     
     @classmethod
-    def is_user_blocked(cls, user, minutes=15, max_attempts=3):
+    def is_user_blocked(cls, user, attempt_type=None, minutes=15, max_attempts=3):
         """Check if user should be blocked due to too many failed attempts"""
         since = timezone.now() - timedelta(minutes=minutes)
-        failed_attempts = cls.objects.filter(
-            user=user,
-            success=False,
-            timestamp__gte=since
-        ).count()
+        query_filter = {
+            'user': user,
+            'success': False,
+            'timestamp__gte': since
+        }
+        if attempt_type:
+            query_filter['attempt_type'] = attempt_type
+            
+        failed_attempts = cls.objects.filter(**query_filter).count()
         return failed_attempts >= max_attempts
     
     def __str__(self):
         status = "Success" if self.success else "Failed"
-        return f"{status} login attempt for {self.email_attempted} from {self.ip_address}"
+        return f"{status} {self.get_attempt_type_display()} attempt for {self.email_attempted} from {self.ip_address}"
 
 class UserSession(models.Model):
     """Track active user sessions across devices"""

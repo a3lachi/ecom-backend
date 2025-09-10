@@ -1,4 +1,4 @@
-from rest_framework import generics, status
+from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -7,7 +7,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema, OpenApiResponse
-from .models import EmailVerificationToken, PasswordResetToken, LoginAttempt, UserSession
+from .models import EmailVerificationToken, PasswordResetToken, SecurityAttempt, UserSession
 from .serializers import (
     RegisterSerializer, LoginSerializer, UserSerializer,
     EmailVerificationSerializer, ResendVerificationSerializer,
@@ -41,9 +41,10 @@ def create_user_session(user, request, jti=None):
         jti=jti or ''
     )
 
-def log_login_attempt(request, email=None, user=None, success=False, failure_reason=''):
-    """Log login attempt for security monitoring"""
-    LoginAttempt.objects.create(
+def log_security_attempt(request, attempt_type, email=None, user=None, success=False, failure_reason=''):
+    """Log security attempt for monitoring"""
+    SecurityAttempt.objects.create(
+        attempt_type=attempt_type,
         user=user,
         ip_address=get_client_ip(request),
         user_agent=get_user_agent(request),
@@ -52,14 +53,14 @@ def log_login_attempt(request, email=None, user=None, success=False, failure_rea
         failure_reason=failure_reason
     )
 
-class RegisterView(generics.CreateAPIView):
+class RegisterView(APIView):
     """User registration endpoint"""
-    serializer_class = RegisterSerializer
     permission_classes = [AllowAny]
     
     @extend_schema(
         summary="User Registration",
         description="Register a new user account. User will be inactive until email verification.",
+        request=RegisterSerializer,
         responses={
             201: OpenApiResponse(
                 description="Registration successful",
@@ -71,19 +72,20 @@ class RegisterView(generics.CreateAPIView):
                     }
                 }
             ),
-            400: OpenApiResponse(description="Validation errors")
+            400: OpenApiResponse(description="Validation errors"),
+            429: OpenApiResponse(description="Too many attempts")
         }
     )
-    def create(self, request, *args, **kwargs):
+    def post(self, request):
         # Check for IP-based rate limiting
         client_ip = get_client_ip(request)
-        if LoginAttempt.is_ip_blocked(client_ip, minutes=60, max_attempts=10):
+        if SecurityAttempt.is_ip_blocked(client_ip, attempt_type=SecurityAttempt.AttemptType.REGISTER, minutes=60, max_attempts=10):
             return Response(
                 {"detail": "Too many registration attempts. Please try again later."},
                 status=status.HTTP_429_TOO_MANY_REQUESTS
             )
         
-        serializer = self.get_serializer(data=request.data)
+        serializer = RegisterSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
             
@@ -94,8 +96,9 @@ class RegisterView(generics.CreateAPIView):
             # send_verification_email(user, verification_token)
             
             # Log registration attempt
-            log_login_attempt(
+            log_security_attempt(
                 request, 
+                attempt_type=SecurityAttempt.AttemptType.REGISTER,
                 email=user.email, 
                 user=user, 
                 success=True
@@ -108,8 +111,9 @@ class RegisterView(generics.CreateAPIView):
         
         # Log failed registration attempt
         email = request.data.get('email', '')
-        log_login_attempt(
+        log_security_attempt(
             request, 
+            attempt_type=SecurityAttempt.AttemptType.REGISTER,
             email=email, 
             success=False, 
             failure_reason='validation_error'
@@ -146,11 +150,7 @@ class LoginView(APIView):
         email = request.data.get('email', '')
         
         # Check IP-based rate limiting
-        if LoginAttempt.is_ip_blocked(client_ip):
-            log_login_attempt(
-                request, email=email, success=False, 
-                failure_reason='too_many_attempts'
-            )
+        if SecurityAttempt.is_ip_blocked(client_ip, attempt_type=SecurityAttempt.AttemptType.LOGIN, minutes=15, max_attempts=5):
             return Response(
                 {"detail": "Too many failed login attempts. Please try again later."},
                 status=status.HTTP_429_TOO_MANY_REQUESTS
@@ -159,11 +159,7 @@ class LoginView(APIView):
         # Check user-based rate limiting
         try:
             user = User.objects.get(email__iexact=email)
-            if LoginAttempt.is_user_blocked(user):
-                log_login_attempt(
-                    request, user=user, success=False, 
-                    failure_reason='too_many_attempts'
-                )
+            if SecurityAttempt.is_user_blocked(user, attempt_type=SecurityAttempt.AttemptType.LOGIN):
                 return Response(
                     {"detail": "Too many failed login attempts for this account."},
                     status=status.HTTP_429_TOO_MANY_REQUESTS
@@ -183,7 +179,7 @@ class LoginView(APIView):
             create_user_session(user, request, jti=str(refresh['jti']))
             
             # Log successful login
-            log_login_attempt(request, user=user, success=True)
+            log_security_attempt(request, attempt_type=SecurityAttempt.AttemptType.LOGIN, user=user, success=True)
             
             return Response({
                 'access': str(access),
@@ -192,8 +188,11 @@ class LoginView(APIView):
             })
         
         # Log failed login
-        log_login_attempt(
-            request, email=email, success=False, 
+        log_security_attempt(
+            request, 
+            attempt_type=SecurityAttempt.AttemptType.LOGIN,
+            email=email, 
+            success=False, 
             failure_reason='invalid_credentials'
         )
         
@@ -219,10 +218,19 @@ class VerifyEmailView(APIView):
                     }
                 }
             ),
-            400: OpenApiResponse(description="Invalid or expired token")
+            400: OpenApiResponse(description="Invalid or expired token"),
+            429: OpenApiResponse(description="Too many attempts")
         }
     )
     def get(self, request, token):
+        # Check for IP-based rate limiting
+        client_ip = get_client_ip(request)
+        if SecurityAttempt.is_ip_blocked(client_ip, attempt_type=SecurityAttempt.AttemptType.EMAIL_VERIFICATION, minutes=15, max_attempts=10):
+            return Response(
+                {"detail": "Too many verification attempts. Please try again later."},
+                status=status.HTTP_429_TOO_MANY_REQUESTS
+            )
+        
         serializer = EmailVerificationSerializer(data={'token': token})
         if serializer.is_valid():
             verification_token = serializer.validated_data['token']
@@ -236,22 +244,20 @@ class VerifyEmailView(APIView):
             # Mark token as used
             verification_token.mark_as_used()
             
-            # Generate JWT tokens
-            refresh = RefreshToken.for_user(user)
-            access = refresh.access_token
-            
-            # Create user session
-            create_user_session(user, request, jti=str(refresh['jti']))
-            
             # Log successful verification
-            log_login_attempt(request, user=user, success=True)
+            log_security_attempt(request, attempt_type=SecurityAttempt.AttemptType.EMAIL_VERIFICATION, user=user, success=True)
             
             return Response({
-                'message': 'Email verified successfully. You are now logged in.',
-                'access': str(access),
-                'refresh': str(refresh),
-                'user': UserSerializer(user).data
-            })
+                'message': 'Email verified successfully. You can now log in.'
+            }, status=status.HTTP_200_OK)
+        
+        # Log failed verification attempt
+        log_security_attempt(
+            request, 
+            attempt_type=SecurityAttempt.AttemptType.EMAIL_VERIFICATION,
+            success=False, 
+            failure_reason='invalid_token'
+        )
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -265,19 +271,31 @@ class ResendVerificationView(APIView):
         request=ResendVerificationSerializer,
         responses={
             200: OpenApiResponse(description="Verification email sent"),
-            400: OpenApiResponse(description="Invalid request")
+            400: OpenApiResponse(description="Invalid request"),
+            429: OpenApiResponse(description="Too many attempts")
         }
     )
     def post(self, request):
+        # Check for IP-based rate limiting
+        client_ip = get_client_ip(request)
+        
+        if SecurityAttempt.is_ip_blocked(client_ip, attempt_type=SecurityAttempt.AttemptType.EMAIL_VERIFICATION, minutes=15, max_attempts=5):
+            return Response(
+                {"detail": "Too many verification requests. Please try again later."},
+                status=status.HTTP_429_TOO_MANY_REQUESTS
+            )
+        
         serializer = ResendVerificationSerializer(data=request.data)
         if serializer.is_valid():
-            user = serializer.validated_data['email']
+            user = serializer.validated_data['email']  # Returns user object, not email string
             
             # Invalidate old tokens
-            EmailVerificationToken.objects.filter(
+            old_tokens = EmailVerificationToken.objects.filter(
                 user=user, 
                 is_used=False
-            ).update(is_used=True)
+            )
+            for token in old_tokens:
+                token.mark_as_used()
             
             # Create new token
             verification_token = EmailVerificationToken.objects.create(user=user)
@@ -285,9 +303,27 @@ class ResendVerificationView(APIView):
             # TODO: Send verification email
             # send_verification_email(user, verification_token)
             
+            # Log successful resend attempt
+            log_security_attempt(
+                request,
+                attempt_type=SecurityAttempt.AttemptType.EMAIL_VERIFICATION,
+                user=user,
+                success=True
+            )
+            
             return Response({
                 'message': 'Verification email has been sent.'
-            })
+            }, status=status.HTTP_200_OK)
+        
+        # Log failed resend attempt
+        email = request.data.get('email', '')
+        log_security_attempt(
+            request,
+            attempt_type=SecurityAttempt.AttemptType.EMAIL_VERIFICATION,
+            email=email,
+            success=False,
+            failure_reason='validation_error'
+        )
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -318,11 +354,11 @@ class LogoutView(APIView):
             
             return Response({
                 'message': 'Successfully logged out.'
-            })
+            }, status=status.HTTP_200_OK)
         except Exception:
             return Response({
                 'message': 'Successfully logged out.'
-            })
+            }, status=status.HTTP_200_OK)
 
 class ChangePasswordView(APIView):
     """Change password for authenticated users"""
@@ -349,3 +385,119 @@ class ChangePasswordView(APIView):
             })
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class UserSessionListView(APIView):
+    """List user's active sessions"""
+    permission_classes = [IsAuthenticated]
+    
+    @extend_schema(
+        summary="List User Sessions",
+        description="Get all active sessions for the authenticated user.",
+        responses={
+            200: OpenApiResponse(
+                description="List of active sessions",
+                response={
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": {"type": "integer"},
+                            "device_info": {"type": "string"},
+                            "ip_address": {"type": "string"},
+                            "created_at": {"type": "string"},
+                            "last_activity": {"type": "string"},
+                            "is_current": {"type": "boolean"}
+                        }
+                    }
+                }
+            )
+        }
+    )
+    def get(self, request):
+        # Get current session JTI from token
+        current_jti = None
+        if hasattr(request, 'auth') and request.auth:
+            current_jti = str(request.auth.get('jti', ''))
+        
+        sessions = UserSession.objects.filter(
+            user=request.user,
+            is_active=True
+        ).order_by('-last_activity')
+        
+        session_data = []
+        for session in sessions:
+            session_data.append({
+                'id': session.id,
+                'device_info': session.device_info,
+                'ip_address': session.ip_address,
+                'created_at': session.created_at,
+                'last_activity': session.last_activity,
+                'is_current': session.jti == current_jti
+            })
+        
+        return Response(session_data)
+
+
+class DeactivateSessionView(APIView):
+    """Deactivate a specific session"""
+    permission_classes = [IsAuthenticated]
+    
+    @extend_schema(
+        summary="Deactivate Session",
+        description="Deactivate a specific session. This will force re-login for that session.",
+        responses={
+            200: OpenApiResponse(description="Session deactivated successfully"),
+            404: OpenApiResponse(description="Session not found")
+        }
+    )
+    def post(self, request, session_id):
+        try:
+            session = UserSession.objects.get(
+                id=session_id,
+                user=request.user,
+                is_active=True
+            )
+            session.deactivate()
+            
+            return Response({
+                'message': 'Session deactivated successfully.'
+            })
+        except UserSession.DoesNotExist:
+            return Response({
+                'error': 'Session not found or already deactivated.'
+            }, status=status.HTTP_404_NOT_FOUND)
+
+
+class DeactivateAllSessionsView(APIView):
+    """Deactivate all sessions except current"""
+    permission_classes = [IsAuthenticated]
+    
+    @extend_schema(
+        summary="Deactivate All Other Sessions",
+        description="Deactivate all sessions except the current one. Forces re-login on all other devices.",
+        responses={
+            200: OpenApiResponse(description="All other sessions deactivated")
+        }
+    )
+    def post(self, request):
+        # Get current session JTI
+        current_jti = None
+        if hasattr(request, 'auth') and request.auth:
+            current_jti = str(request.auth.get('jti', ''))
+        
+        # Deactivate all sessions except current
+        sessions = UserSession.objects.filter(
+            user=request.user,
+            is_active=True
+        )
+        
+        if current_jti:
+            sessions = sessions.exclude(jti=current_jti)
+        
+        count = sessions.count()
+        sessions.update(is_active=False)
+        
+        return Response({
+            'message': f'Deactivated {count} sessions successfully.'
+        })

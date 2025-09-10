@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from django.utils import timezone
-from .models import EmailVerificationToken, PasswordResetToken, LoginAttempt, UserSession
+from .models import EmailVerificationToken, PasswordResetToken, SecurityAttempt, UserSession
 
 @admin.register(EmailVerificationToken)
 class EmailVerificationTokenAdmin(admin.ModelAdmin):
@@ -45,10 +45,10 @@ class PasswordResetTokenAdmin(admin.ModelAdmin):
             return format_html('<span style="color: blue;">◯ Active</span>')
     status_display.short_description = "Status"
 
-@admin.register(LoginAttempt)
-class LoginAttemptAdmin(admin.ModelAdmin):
-    list_display = ('email_attempted', 'user', 'success', 'ip_address', 'timestamp', 'failure_reason', 'success_display')
-    list_filter = ('success', 'failure_reason', 'timestamp')
+@admin.register(SecurityAttempt)
+class SecurityAttemptAdmin(admin.ModelAdmin):
+    list_display = ('attempt_type', 'email_attempted', 'user', 'success', 'ip_address', 'timestamp', 'failure_reason', 'success_display')
+    list_filter = ('attempt_type', 'success', 'failure_reason', 'timestamp')
     search_fields = ('email_attempted', 'user__email', 'ip_address', 'user_agent')
     readonly_fields = ('timestamp', 'success_display')
     ordering = ('-timestamp',)
@@ -63,6 +63,19 @@ class LoginAttemptAdmin(admin.ModelAdmin):
     
     def get_queryset(self, request):
         return super().get_queryset(request).select_related('user')
+    
+    fieldsets = (
+        (None, {
+            'fields': ('attempt_type', 'email_attempted', 'user', 'success')
+        }),
+        ('Request Details', {
+            'fields': ('ip_address', 'user_agent', 'failure_reason')
+        }),
+        ('Timestamp', {
+            'fields': ('timestamp', 'success_display'),
+            'classes': ('collapse',)
+        })
+    )
 
 @admin.register(UserSession)
 class UserSessionAdmin(admin.ModelAdmin):

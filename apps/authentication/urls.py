@@ -2,7 +2,8 @@ from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
 from .views import (
     RegisterView, LoginView, LogoutView, VerifyEmailView,
-    ResendVerificationView, ChangePasswordView
+    ResendVerificationView, ChangePasswordView,
+    UserSessionListView, DeactivateSessionView, DeactivateAllSessionsView
 )
 
 urlpatterns = [
@@ -18,6 +19,11 @@ urlpatterns = [
     
     # Password Management
     path('change-password/', ChangePasswordView.as_view(), name='change-password'),
+    
+    # Session Management
+    path('sessions/', UserSessionListView.as_view(), name='user-sessions'),
+    path('sessions/<int:session_id>/deactivate/', DeactivateSessionView.as_view(), name='deactivate-session'),
+    path('sessions/deactivate-all/', DeactivateAllSessionsView.as_view(), name='deactivate-all-sessions'),
     
     # TODO: Add these routes later
     # path('forgot-password/', ForgotPasswordView.as_view(), name='forgot-password'),
