@@ -7,11 +7,10 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema, OpenApiResponse
-from .models import EmailVerificationToken, PasswordResetToken, SecurityAttempt, UserSession
+from .models import EmailVerificationToken, SecurityAttempt, UserSession
 from .serializers import (
     RegisterSerializer, LoginSerializer, UserSerializer,
     EmailVerificationSerializer, ResendVerificationSerializer,
-    PasswordResetRequestSerializer, PasswordResetSerializer,
     ChangePasswordSerializer
 )
 from .session_utils import (

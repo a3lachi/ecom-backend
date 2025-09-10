@@ -65,7 +65,7 @@ ecom_backend/
 ├── apps/                          # Django applications
 │   ├── __init__.py                # Apps package initializer
 │   ├── authentication/            # 🔐 Complete JWT auth system with session management
-│   │   ├── models.py              # Auth models (EmailVerificationToken, PasswordResetToken, SecurityAttempt, UserSession)
+│   │   ├── models.py              # Auth models (EmailVerificationToken, SecurityAttempt, UserSession)
 │   │   ├── serializers.py         # Auth serializers (RegisterSerializer, LoginSerializer, UserSerializer, etc.)
 │   │   ├── views.py               # Auth views (RegisterView, LoginView, VerifyEmailView, SessionManagement, etc.)
 │   │   ├── authentication.py      # SessionAwareJWTAuthentication - custom JWT auth with session validation
@@ -479,7 +479,6 @@ Our authentication system combines JWT tokens with sophisticated session managem
 
 #### Multi-Layer Security Protection
 - **Email Verification**: Secure UUID-based tokens with 24-hour expiry
-- **Password Reset**: One-time tokens with IP tracking and 1-hour expiry  
 - **Rate Limiting**: Progressive blocking system
   - **IP-based**: 5 failed login attempts in 15 minutes
   - **User-based**: 3 failed attempts in 15 minutes
@@ -504,7 +503,6 @@ Our authentication system combines JWT tokens with sophisticated session managem
 
 #### Core Models
 - **`EmailVerificationToken`**: UUID-based email verification with expiry tracking
-- **`PasswordResetToken`**: Secure password reset with IP and user agent tracking
 - **`SecurityAttempt`**: Comprehensive logging of all security events with failure reasons
 - **`UserSession`**: Advanced session management with JWT integration
 

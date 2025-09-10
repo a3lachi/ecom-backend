@@ -9,7 +9,7 @@ from unittest.mock import patch
 from datetime import timedelta
 import uuid
 
-from .models import EmailVerificationToken, PasswordResetToken, SecurityAttempt, UserSession
+from .models import EmailVerificationToken, SecurityAttempt, UserSession
 
 User = get_user_model()
 
