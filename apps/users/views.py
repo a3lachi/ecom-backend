@@ -92,11 +92,7 @@ class UserAddressListView(APIView):
         summary="List user addresses",
         description="Retrieve all addresses for the authenticated user, ordered by creation date (newest first). Shows default address first if exists.",
         responses={
-            200: {
-                "type": "array",
-                "items": AddressSerializer,
-                "description": "List of user addresses"
-            },
+            200: AddressSerializer(many=True),
             401: {
                 "description": "Authentication credentials were not provided or are invalid."
             }

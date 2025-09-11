@@ -4,7 +4,7 @@ from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiParamet
 from django.db.models import Q
 
 from .models import Category, Color, Size, Tag, Product
-from .serializers import CategorySerializer, ColorSerializer, SizeSerializer, TagSerializer, ProductListSerializer
+from .serializers import CategorySerializer, ColorSerializer, SizeSerializer, TagSerializer, ProductListSerializer, ProductDetailSerializer
 
 
 class CategoryListView(generics.ListAPIView):
@@ -210,6 +210,38 @@ class ProductListView(generics.ListAPIView):
             200: OpenApiResponse(
                 description="List of products",
                 response=ProductListSerializer(many=True)
+            )
+        },
+        tags=["Products"]
+    )
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+
+class ProductDetailListView(generics.ListAPIView):
+    """
+    Get list of all products with comprehensive details including:
+    name, price, compare_price, small_description, large_description, 
+    colors, sizes, categories, tags, all images, additional information and reviews
+    """
+    serializer_class = ProductDetailSerializer
+    permission_classes = [AllowAny]
+    pagination_class = None  # Disable pagination to return all results
+    
+    def get_queryset(self):
+        """Return active products with all related data prefetched"""
+        return Product.objects.filter(is_active=True).prefetch_related(
+            'categories', 'colors', 'sizes', 'tags', 'images', 
+            'additional_info', 'reviews__user'
+        ).select_related().order_by('-created_at')
+    
+    @extend_schema(
+        summary="List All Products with Full Details",
+        description="Retrieve all active products with comprehensive details including name, price, compare_price, descriptions, colors, sizes, categories, tags, images, additional information, and reviews. No authentication required.",
+        responses={
+            200: OpenApiResponse(
+                description="List of products with full details",
+                response=ProductDetailSerializer(many=True)
             )
         },
         tags=["Products"]

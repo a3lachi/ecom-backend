@@ -205,6 +205,16 @@ SPECTACULAR_SETTINGS = {
     'SERVE_INCLUDE_SCHEMA': False,
     'COMPONENT_SPLIT_REQUEST': True,
     'SCHEMA_PATH_PREFIX': '/api/v1/',
+    'REDOC_UI_SETTINGS': {
+        'hideDownloadButton': False,
+        'theme': {
+            'colors': {
+                'primary': {
+                    'main': '#1976d2'
+                }
+            }
+        }
+    },
 }
 
 # Custom user model (will be enabled once User model is created)

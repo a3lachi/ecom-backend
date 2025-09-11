@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
+from drf_spectacular.utils import extend_schema_field
 from .models import Address, UserProfile
 
 User = get_user_model()
@@ -42,10 +43,12 @@ class UserMeSerializer(serializers.ModelSerializer):
             'id', 'username', 'email_verified_at', 'is_active', 'date_joined'
         )
 
+    @extend_schema_field(serializers.IntegerField)
     def get_addresses_count(self, obj):
         """Get total number of addresses for the user"""
         return obj.addresses.count()
 
+    @extend_schema_field(serializers.IntegerField)
     def get_default_address_id(self, obj):
         """Get the ID of user's default address"""
         default_address = obj.default_address
@@ -64,21 +67,6 @@ class AddressSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ('id', 'created_at', 'updated_at')
 
-    def validate(self, data):
-        """Ensure user can only have one default address"""
-        user = self.context['request'].user
-        
-        # If setting as default, check if user already has a default
-        if data.get('is_default', False):
-            existing_default = Address.objects.filter(
-                user=user, is_default=True
-            ).exclude(pk=self.instance.pk if self.instance else None)
-            
-            if existing_default.exists():
-                # This will be handled by the model's save method
-                pass
-        
-        return data
 
 
 class UserUpdateSerializer(serializers.ModelSerializer):
@@ -106,6 +94,7 @@ class UserBasicSerializer(serializers.ModelSerializer):
         model = User
         fields = ('id', 'username', 'first_name', 'last_name', 'full_name')
 
+    @extend_schema_field(serializers.CharField)
     def get_full_name(self, obj):
         """Get user's full name or username as fallback"""
         if obj.first_name and obj.last_name:
