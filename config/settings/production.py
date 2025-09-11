@@ -7,40 +7,58 @@ from .base import *
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-# Database for production (you'll need to set this up with your database provider)
+# Database for production - using SQLite in-memory (temporary)
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('POSTGRES_DATABASE'),
-        'USER': os.environ.get('POSTGRES_USER'),
-        'PASSWORD': os.environ.get('POSTGRES_PASSWORD'),
-        'HOST': os.environ.get('POSTGRES_HOST'),
-        'PORT': os.environ.get('POSTGRES_PORT', '5432'),
-        'OPTIONS': {
-            'sslmode': 'require',
-        },
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': ':memory:',
     }
 }
 
-# Use SQLite as fallback for testing
-if not os.environ.get('POSTGRES_DATABASE'):
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
-        }
-    }
+# PostgreSQL config (commented out temporarily)
+# DATABASE_URL = os.environ.get('DATABASE_URL')
+# if DATABASE_URL:
+#     import dj_database_url
+#     DATABASES = {
+#         'default': dj_database_url.parse(DATABASE_URL, conn_max_age=0)
+#     }
+# else:
+#     DATABASES = {
+#         'default': {
+#             'ENGINE': 'django.db.backends.postgresql',
+#             'NAME': os.environ.get('POSTGRES_DATABASE', 'postgres'),
+#             'USER': os.environ.get('POSTGRES_USER', 'postgres'),
+#             'PASSWORD': os.environ.get('POSTGRES_PASSWORD'),
+#             'HOST': os.environ.get('POSTGRES_HOST'),
+#             'PORT': os.environ.get('POSTGRES_PORT', '5432'),
+#             'OPTIONS': {
+#                 'sslmode': 'require',
+#                 'connect_timeout': 10,
+#                 'application_name': 'django-vercel-app',
+#             },
+#             'CONN_MAX_AGE': 0,  # No connection pooling for serverless
+#         }
+#     }
 
-# Static files configuration for Vercel
-STATIC_URL = '/static/'
-STATIC_ROOT = BASE_DIR / 'staticfiles_build' / 'static'
-STATICFILES_DIRS = [
-    BASE_DIR / 'static',
+# Static files (using Django defaults since we're not serving static files)
+
+# Enable DEBUG temporarily to serve static files
+DEBUG = True
+
+# Add database setup middleware for serverless
+MIDDLEWARE = [
+    'django.middleware.security.SecurityMiddleware',
+    'apps.core.middleware.DatabaseSetupMiddleware',  # Add database setup
+    'corsheaders.middleware.CorsMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.common.CommonMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.contrib.messages.middleware.MessageMiddleware',
+    'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-# Media files configuration
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'staticfiles_build' / 'media'
+# Media files (using Django defaults since we're not serving media files)
 
 # Security settings
 SECURE_BROWSER_XSS_FILTER = True

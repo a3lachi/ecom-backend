@@ -28,6 +28,6 @@ urlpatterns = [
     path('api/health/', include('apps.core.urls')),
 ]
 
-# Serve media files in development
+# Static and media files are handled by Django's default settings
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
