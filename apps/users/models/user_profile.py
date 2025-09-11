@@ -75,6 +75,11 @@ class UserProfile(models.Model):
             models.Index(fields=['loyalty_points']),
         ]
 
+    def save(self, *args, **kwargs):
+        """Override save to update membership tier based on loyalty points"""
+        self._update_membership_tier()
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.user.username}'s Profile"
 

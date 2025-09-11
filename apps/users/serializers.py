@@ -81,6 +81,23 @@ class AddressSerializer(serializers.ModelSerializer):
         return data
 
 
+class UserUpdateSerializer(serializers.ModelSerializer):
+    """Serializer for updating user basic information"""
+    
+    class Meta:
+        model = User
+        fields = (
+            'first_name', 'last_name', 'phone', 'locale', 'timezone'
+        )
+        
+    def validate_phone(self, value):
+        """Validate phone number format"""
+        if value and not value.startswith('+'):
+            # You could add more comprehensive phone validation here
+            pass
+        return value
+
+
 class UserBasicSerializer(serializers.ModelSerializer):
     """Basic user serializer for nested use"""
     full_name = serializers.SerializerMethodField()

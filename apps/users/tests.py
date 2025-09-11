@@ -223,31 +223,40 @@ class UserProfileTestCase(TestCase):
 
     def test_age_without_birth_date(self):
         """Test age property when no birth date is set"""
-        profile = UserProfile.objects.create(user=self.user)
+        new_user = User.objects.create_user(
+            username="ageuser",
+            email="age@example.com",
+            password="testpass123"
+        )
+        profile = UserProfile.objects.create(user=new_user)
         self.assertIsNone(profile.age)
 
     def test_loyalty_points_and_membership_tier(self):
         """Test loyalty points and membership tier updates"""
+        # Create new user for this test
+        tier_user = User.objects.create_user(
+            username="loyaltyuser",
+            email="loyalty@example.com",
+            password="testpass123"
+        )
+        
         # Test bronze tier
-        profile = UserProfile.objects.create(user=self.user, loyalty_points=500)
+        profile = UserProfile.objects.create(user=tier_user, loyalty_points=500)
         self.assertEqual(profile.membership_tier, UserProfile.MembershipTier.BRONZE)
         
         # Test silver tier (1000+)
         profile.loyalty_points = 1200
         profile.save()
-        profile._update_membership_tier()
         self.assertEqual(profile.membership_tier, UserProfile.MembershipTier.SILVER)
         
         # Test gold tier (5000+)
         profile.loyalty_points = 6000
         profile.save()
-        profile._update_membership_tier()
         self.assertEqual(profile.membership_tier, UserProfile.MembershipTier.GOLD)
         
         # Test platinum tier (10000+)
         profile.loyalty_points = 15000
         profile.save()
-        profile._update_membership_tier()
         self.assertEqual(profile.membership_tier, UserProfile.MembershipTier.PLATINUM)
 
     def test_add_loyalty_points(self):
@@ -263,8 +272,13 @@ class UserProfileTestCase(TestCase):
 
     def test_add_loyalty_points_tier_promotion(self):
         """Test loyalty points addition that triggers tier promotion"""
-        # Start with bronze tier
-        profile = UserProfile.objects.create(user=self.user, loyalty_points=500)
+        # Start with a new user and profile
+        new_user = User.objects.create_user(
+            username="tieruser",
+            email="tier@example.com",
+            password="testpass123"
+        )
+        profile = UserProfile.objects.create(user=new_user, loyalty_points=500)
         self.assertEqual(profile.membership_tier, UserProfile.MembershipTier.BRONZE)
         
         # Add enough points to reach silver
@@ -289,22 +303,42 @@ class UserProfileTestCase(TestCase):
 
     def test_loyalty_discount_percentage(self):
         """Test discount percentage based on membership tier"""
+        # Create separate users for each tier test
+        bronze_user = User.objects.create_user(
+            username="bronzeuser",
+            email="bronze@example.com",
+            password="testpass123"
+        )
+        silver_user = User.objects.create_user(
+            username="silveruser",
+            email="silver@example.com",
+            password="testpass123"
+        )
+        gold_user = User.objects.create_user(
+            username="golduser",
+            email="gold@example.com",
+            password="testpass123"
+        )
+        platinum_user = User.objects.create_user(
+            username="platinumuser",
+            email="platinum@example.com",
+            password="testpass123"
+        )
+        
         # Bronze - 0%
-        bronze_profile = UserProfile.objects.create(user=self.user, loyalty_points=500)
+        bronze_profile = UserProfile.objects.create(user=bronze_user, loyalty_points=500)
         self.assertEqual(bronze_profile.get_loyalty_discount_percentage(), 0)
         
         # Silver - 5%
-        silver_profile = UserProfile.objects.create(user=self.user, loyalty_points=1500)
+        silver_profile = UserProfile.objects.create(user=silver_user, loyalty_points=1500)
         self.assertEqual(silver_profile.get_loyalty_discount_percentage(), 5)
         
         # Gold - 10%
-        gold_profile = UserProfile.objects.create(user=self.user, loyalty_points=6000)
-        gold_profile._update_membership_tier()
+        gold_profile = UserProfile.objects.create(user=gold_user, loyalty_points=6000)
         self.assertEqual(gold_profile.get_loyalty_discount_percentage(), 10)
         
         # Platinum - 15%
-        platinum_profile = UserProfile.objects.create(user=self.user, loyalty_points=12000)
-        platinum_profile._update_membership_tier()
+        platinum_profile = UserProfile.objects.create(user=platinum_user, loyalty_points=12000)
         self.assertEqual(platinum_profile.get_loyalty_discount_percentage(), 15)
 
     def test_can_receive_marketing(self):
@@ -493,3 +527,367 @@ class UserAPITestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['addresses_count'], 0)
         self.assertIsNone(response.data['default_address_id'])
+
+    def test_patch_me_authenticated(self):
+        """Test PATCH /api/me/ with authenticated user"""
+        self.authenticate_user()
+        
+        url = reverse('user-me')
+        update_data = {
+            'first_name': 'Updated',
+            'last_name': 'Name',
+            'phone': '+212600987654',
+            'locale': 'en',
+            'timezone': 'UTC'
+        }
+        
+        response = self.client.patch(url, update_data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        # Verify the data was updated
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.first_name, 'Updated')
+        self.assertEqual(self.user.last_name, 'Name')
+        self.assertEqual(self.user.phone, '+212600987654')
+        self.assertEqual(self.user.locale, 'en')
+        self.assertEqual(self.user.timezone, 'UTC')
+        
+        # Verify response contains updated data
+        self.assertEqual(response.data['first_name'], 'Updated')
+        self.assertEqual(response.data['last_name'], 'Name')
+        self.assertEqual(response.data['phone'], '+212600987654')
+
+    def test_patch_me_partial_update(self):
+        """Test PATCH /api/me/ with partial data"""
+        self.authenticate_user()
+        
+        url = reverse('user-me')
+        update_data = {
+            'first_name': 'NewFirst'
+        }
+        
+        response = self.client.patch(url, update_data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        # Verify only specified field was updated
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.first_name, 'NewFirst')
+        # Other fields should remain unchanged
+        self.assertEqual(self.user.last_name, 'User')  # Original value from setUp
+
+    def test_patch_me_unauthenticated(self):
+        """Test PATCH /api/me/ without authentication"""
+        url = reverse('user-me')
+        update_data = {
+            'first_name': 'Unauthorized'
+        }
+        
+        response = self.client.patch(url, update_data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_patch_me_invalid_data(self):
+        """Test PATCH /api/me/ with invalid data"""
+        self.authenticate_user()
+        
+        url = reverse('user-me')
+        update_data = {
+            'locale': 'invalid_locale_code_too_long'  # This exceeds the max_length=10
+        }
+        
+        response = self.client.patch(url, update_data, format='json')
+        
+        # Should return 400 due to validation error
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('locale', response.data)
+
+    def test_get_addresses_authenticated_with_addresses(self):
+        """Test GET /api/me/addresses/ with authenticated user who has addresses"""
+        self.authenticate_user()
+        
+        url = reverse('user-addresses')
+        response = self.client.get(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        # Should return list of 2 addresses (from setUp)
+        self.assertEqual(len(response.data), 2)
+        
+        # Check address data structure
+        address_data = response.data[0]  # First address (should be default)
+        expected_fields = [
+            'id', 'kind', 'full_name', 'line1', 'line2', 'city',
+            'region', 'postal_code', 'country', 'phone', 'is_default',
+            'label', 'created_at', 'updated_at'
+        ]
+        for field in expected_fields:
+            self.assertIn(field, address_data)
+        
+        # Verify default address comes first
+        self.assertTrue(response.data[0]['is_default'])  # Default address first
+        self.assertFalse(response.data[1]['is_default'])  # Non-default second
+
+    def test_get_addresses_authenticated_no_addresses(self):
+        """Test GET /api/me/addresses/ with authenticated user who has no addresses"""
+        # Create user with no addresses
+        user_no_addr = User.objects.create_user(
+            username="noaddress",
+            email="noaddress@example.com",
+            password="testpass123"
+        )
+        self.client.force_authenticate(user=user_no_addr)
+        
+        url = reverse('user-addresses')
+        response = self.client.get(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 0)  # Empty list
+        self.assertEqual(response.data, [])
+
+    def test_get_addresses_unauthenticated(self):
+        """Test GET /api/me/addresses/ without authentication"""
+        url = reverse('user-addresses')
+        response = self.client.get(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_get_addresses_ordering(self):
+        """Test that addresses are ordered by default first, then by creation date"""
+        self.authenticate_user()
+        
+        # Create additional addresses with specific ordering
+        older_address = Address.objects.create(
+            user=self.user,
+            kind=Address.Kind.OTHER,
+            full_name="Old Address",
+            line1="999 Old Street",
+            city="Old City",
+            country="MA",
+            label="Old"
+        )
+        
+        # Make the older address default (should move to front)
+        older_address.is_default = True
+        older_address.save()
+        
+        url = reverse('user-addresses')
+        response = self.client.get(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 3)  # 2 from setUp + 1 new
+        
+        # First address should be the default (older_address)
+        self.assertEqual(response.data[0]['id'], older_address.id)
+        self.assertTrue(response.data[0]['is_default'])
+        
+        # Other addresses should not be default
+        self.assertFalse(response.data[1]['is_default'])
+        self.assertFalse(response.data[2]['is_default'])
+
+    def test_get_addresses_user_isolation(self):
+        """Test that users only see their own addresses"""
+        # Create another user with addresses
+        other_user = User.objects.create_user(
+            username="otheruser",
+            email="other@example.com",
+            password="testpass123"
+        )
+        Address.objects.create(
+            user=other_user,
+            kind=Address.Kind.SHIPPING,
+            full_name="Other User",
+            line1="Other Street",
+            city="Other City",
+            country="MA"
+        )
+        
+        # Authenticate as original user
+        self.authenticate_user()
+        
+        url = reverse('user-addresses')
+        response = self.client.get(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 2)  # Only original user's addresses
+        
+        # Verify all addresses belong to authenticated user
+        for address_data in response.data:
+            # Get the actual address to verify user
+            address = Address.objects.get(id=address_data['id'])
+            self.assertEqual(address.user, self.user)
+
+    def test_post_address_authenticated(self):
+        """Test POST /api/me/addresses/ with authenticated user"""
+        self.authenticate_user()
+        
+        url = reverse('user-addresses')
+        address_data = {
+            'kind': 'shipping',
+            'full_name': 'Jane Doe',
+            'line1': '789 New Street',
+            'line2': 'Apt 456',
+            'city': 'Marrakech',
+            'region': 'Marrakech-Safi',
+            'postal_code': '40000',
+            'country': 'MA',
+            'phone': '+212600555666',
+            'is_default': False,
+            'label': 'New Home'
+        }
+        
+        response = self.client.post(url, address_data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        
+        # Verify the response data
+        self.assertEqual(response.data['full_name'], 'Jane Doe')
+        self.assertEqual(response.data['line1'], '789 New Street')
+        self.assertEqual(response.data['city'], 'Marrakech')
+        self.assertEqual(response.data['kind'], 'shipping')
+        self.assertFalse(response.data['is_default'])
+        self.assertEqual(response.data['label'], 'New Home')
+        
+        # Verify the address was created in database
+        self.assertEqual(Address.objects.filter(user=self.user).count(), 3)  # 2 from setUp + 1 new
+        new_address = Address.objects.get(full_name='Jane Doe')
+        self.assertEqual(new_address.user, self.user)
+        self.assertEqual(new_address.line1, '789 New Street')
+
+    def test_post_address_minimal_data(self):
+        """Test POST /api/me/addresses/ with minimal required data"""
+        self.authenticate_user()
+        
+        url = reverse('user-addresses')
+        address_data = {
+            'full_name': 'Minimal Address',
+            'line1': '123 Simple St',
+            'city': 'TestCity'
+        }
+        
+        response = self.client.post(url, address_data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        
+        # Verify defaults were applied
+        self.assertEqual(response.data['kind'], 'shipping')  # Default kind
+        self.assertEqual(response.data['country'], 'MA')     # Default country
+        self.assertFalse(response.data['is_default'])        # Default is_default
+        
+        # Verify it was saved
+        new_address = Address.objects.get(full_name='Minimal Address')
+        self.assertEqual(new_address.user, self.user)
+
+    def test_post_address_set_as_default(self):
+        """Test POST /api/me/addresses/ with is_default=True"""
+        self.authenticate_user()
+        
+        # First verify current default
+        current_default = Address.objects.get(user=self.user, is_default=True)
+        
+        url = reverse('user-addresses')
+        address_data = {
+            'full_name': 'New Default',
+            'line1': '555 Default Ave',
+            'city': 'DefaultCity',
+            'is_default': True
+        }
+        
+        response = self.client.post(url, address_data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(response.data['is_default'])
+        
+        # Verify old default is no longer default
+        current_default.refresh_from_db()
+        self.assertFalse(current_default.is_default)
+        
+        # Verify new address is the default
+        new_address = Address.objects.get(full_name='New Default')
+        self.assertTrue(new_address.is_default)
+
+    def test_post_address_missing_required_fields(self):
+        """Test POST /api/me/addresses/ with missing required fields"""
+        self.authenticate_user()
+        
+        url = reverse('user-addresses')
+        incomplete_data = {
+            'line1': '123 Missing Data St'
+            # Missing full_name and city (required fields)
+        }
+        
+        response = self.client.post(url, incomplete_data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        
+        # Check that validation errors are returned
+        self.assertIn('full_name', response.data)
+        self.assertIn('city', response.data)
+        
+        # Verify no address was created
+        self.assertEqual(Address.objects.filter(user=self.user).count(), 2)  # Only setUp addresses
+
+    def test_post_address_unauthenticated(self):
+        """Test POST /api/me/addresses/ without authentication"""
+        url = reverse('user-addresses')
+        address_data = {
+            'full_name': 'Unauthorized User',
+            'line1': '123 Unauthorized St',
+            'city': 'UnauthorizedCity'
+        }
+        
+        response = self.client.post(url, address_data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        
+        # Verify no address was created
+        self.assertFalse(Address.objects.filter(full_name='Unauthorized User').exists())
+
+    def test_post_address_invalid_kind(self):
+        """Test POST /api/me/addresses/ with invalid address kind"""
+        self.authenticate_user()
+        
+        url = reverse('user-addresses')
+        address_data = {
+            'full_name': 'Test User',
+            'line1': '123 Test St',
+            'city': 'TestCity',
+            'kind': 'invalid_kind'  # Not in Address.Kind.choices
+        }
+        
+        response = self.client.post(url, address_data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('kind', response.data)
+
+    def test_post_address_user_isolation(self):
+        """Test that created addresses belong to the authenticated user only"""
+        # Create another user
+        other_user = User.objects.create_user(
+            username="otheruser2",
+            email="other2@example.com",
+            password="testpass123"
+        )
+        
+        # Authenticate as original user
+        self.authenticate_user()
+        
+        url = reverse('user-addresses')
+        address_data = {
+            'full_name': 'Isolated Address',
+            'line1': '123 Isolated St',
+            'city': 'IsolatedCity'
+        }
+        
+        response = self.client.post(url, address_data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        
+        # Verify the address belongs to authenticated user, not other user
+        new_address = Address.objects.get(full_name='Isolated Address')
+        self.assertEqual(new_address.user, self.user)
+        self.assertNotEqual(new_address.user, other_user)
+        
+        # Verify other user has no addresses
+        self.assertEqual(Address.objects.filter(user=other_user).count(), 0)

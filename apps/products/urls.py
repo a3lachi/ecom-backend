@@ -1,5 +1,16 @@
 from django.urls import path
+from .views import CategoryListView, ColorListView, SizeListView, TagListView
 
 urlpatterns = [
-    # products endpoints will be added here
+    # Category endpoints
+    path('categories/', CategoryListView.as_view(), name='category-list'),
+    
+    # Color endpoints
+    path('colors/', ColorListView.as_view(), name='color-list'),
+    
+    # Size endpoints
+    path('sizes/', SizeListView.as_view(), name='size-list'),
+    
+    # Tag endpoints
+    path('tags/', TagListView.as_view(), name='tag-list'),
 ]
