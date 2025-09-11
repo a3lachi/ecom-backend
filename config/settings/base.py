@@ -33,6 +33,7 @@ THIRD_PARTY_APPS = [
     "rest_framework_simplejwt.token_blacklist",
     "corsheaders",
     "drf_spectacular",
+    "django_filters",
 ]
 
 LOCAL_APPS = [
@@ -40,6 +41,7 @@ LOCAL_APPS = [
     "apps.authentication",
     "apps.users",
     "apps.products", 
+    "apps.blog",
     "apps.cart",
     "apps.orders",
     "apps.payments",
