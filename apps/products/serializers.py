@@ -124,7 +124,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     colors = ColorSerializer(many=True, read_only=True) 
     sizes = SizeSerializer(many=True, read_only=True)
     tags = TagSerializer(many=True, read_only=True)
-    additional_info = AdditionalInfoSerializer(many=True, read_only=True)
+    additional_info = AdditionalInfoSerializer(read_only=True)
     reviews = serializers.SerializerMethodField()
     
     # Computed properties

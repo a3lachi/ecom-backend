@@ -215,7 +215,7 @@ class AdditionalInfo(models.Model):
     dimensions, materials, or miscellaneous notes.
     """
 
-    product = models.ForeignKey(
+    product = models.OneToOneField(
         "products.Product",
         on_delete=models.CASCADE,
         related_name="additional_info"
