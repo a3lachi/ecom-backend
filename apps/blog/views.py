@@ -12,7 +12,7 @@ from .serializers import (
 @extend_schema(
     summary="List all published articles",
     description="Get a list of all published articles with filtering, search, and pagination support",
-    tags=["Blog - Articles"]
+    tags=["Blog"]
 )
 class ArticleListView(generics.ListAPIView):
     """List all published articles with filtering and search"""
@@ -35,7 +35,7 @@ class ArticleListView(generics.ListAPIView):
 @extend_schema(
     summary="Get article detail",
     description="Get detailed information about a specific published article by its slug",
-    tags=["Blog - Articles"]
+    tags=["Blog"]
 )
 class ArticleDetailView(generics.RetrieveAPIView):
     """Get article detail by slug"""
@@ -53,7 +53,7 @@ class ArticleDetailView(generics.RetrieveAPIView):
 @extend_schema(
     summary="List blog categories",
     description="Get a list of all active blog categories with article counts",
-    tags=["Blog - Categories"]
+    tags=["Blog"]
 )
 class CategoryListView(generics.ListAPIView):
     """List all active categories"""
@@ -69,7 +69,7 @@ class CategoryListView(generics.ListAPIView):
 @extend_schema(
     summary="List blog subcategories", 
     description="Get a list of all active blog subcategories",
-    tags=["Blog - Categories"]
+    tags=["Blog"]
 )
 class SubCategoryListView(generics.ListAPIView):
     """List all active subcategories"""
@@ -85,7 +85,7 @@ class SubCategoryListView(generics.ListAPIView):
 @extend_schema(
     summary="List blog tags",
     description="Get a list of all active blog tags",
-    tags=["Blog - Tags"]
+    tags=["Blog"]
 )
 class TagListView(generics.ListAPIView):
     """List all active tags"""
