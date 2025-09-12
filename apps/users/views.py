@@ -97,7 +97,7 @@ class UserAddressListView(APIView):
                 "description": "Authentication credentials were not provided or are invalid."
             }
         },
-        tags=["User Addresses"]
+        tags=["Users"]
     )
     def get(self, request):
         """Get all user addresses"""
@@ -151,7 +151,7 @@ class UserAddressListView(APIView):
                 "description": "Authentication credentials were not provided or are invalid."
             }
         },
-        tags=["User Addresses"]
+        tags=["Users"]
     )
     def post(self, request):
         """Create a new address for the user"""
