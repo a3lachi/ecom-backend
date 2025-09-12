@@ -14,7 +14,7 @@ from .serializers import CartSerializer, AddToCartSerializer
 def get_or_create_cart(request):
     """Get or create cart for authenticated user or guest session."""
     if request.user.is_authenticated:
-        cart, created = Cart.objects.get_or_create(
+        cart, _ = Cart.objects.get_or_create(
             user=request.user,
             status=Cart.Status.ACTIVE,
             defaults={'currency': 'USD'}
@@ -24,7 +24,7 @@ def get_or_create_cart(request):
         if not session_key:
             raise ValidationError("Session key required for guest users")
         
-        cart, created = Cart.objects.get_or_create(
+        cart, _ = Cart.objects.get_or_create(
             session_key=session_key,
             status=Cart.Status.ACTIVE,
             user=None,
@@ -91,10 +91,7 @@ def get_cart(request):
     ],
     request=AddToCartSerializer,
     responses={
-        200: {
-            'description': 'Item added successfully - returns updated cart',
-            'content': {'application/json': CartSerializer}
-        },
+        200: CartSerializer,
         400: {
             'description': 'Validation error',
             'examples': {
