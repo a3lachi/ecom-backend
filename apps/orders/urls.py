@@ -1,5 +1,6 @@
 from django.urls import path
+from . import views
 
 urlpatterns = [
-    # orders endpoints will be added here
+    path('', views.list_orders, name='list_orders'),
 ]
