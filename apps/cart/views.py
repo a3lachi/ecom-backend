@@ -8,7 +8,7 @@ from django.db import transaction
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
 from .models import Cart, CartItem
-from .serializers import CartSerializer, AddToCartSerializer
+from .serializers import CartSerializer, AddToCartSerializer, DeleteFromCartSerializer, UpdateCartItemSerializer
 
 
 def get_or_create_cart(request):
@@ -73,6 +73,8 @@ def get_cart(request):
             {'error': str(e)}, 
             status=status.HTTP_400_BAD_REQUEST
         )
+
+
 
 
 @extend_schema(
@@ -169,3 +171,210 @@ def add_to_cart(request):
             {'error': 'Failed to add item to cart'}, 
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+
+@extend_schema(
+    summary="Remove Item from Cart",
+    description="Remove a product from the shopping cart. "
+                "For guest users, include X-Session-Key header.",
+    parameters=[
+        OpenApiParameter(
+            name='X-Session-Key',
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.HEADER,
+            description='Session key for guest users (required if not authenticated)',
+            required=False,
+        ),
+    ],
+    request=DeleteFromCartSerializer,
+    responses={
+        200: CartSerializer,
+        400: {
+            'description': 'Validation error',
+            'examples': {
+                'application/json': {
+                    'error': 'Product not found in cart'
+                }
+            }
+        }
+    },
+    tags=['Cart']
+)
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def delete_from_cart(request):
+    """Remove item from cart."""
+    try:
+        cart = get_or_create_cart(request)
+        serializer = DeleteFromCartSerializer(data=request.data)
+        
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        product_id = serializer.validated_data['product']
+        
+        # Find the cart item to delete
+        try:
+            cart_item = CartItem.objects.get(
+                cart=cart,
+                product_id=product_id
+            )
+            cart_item.delete()
+            
+            # Recompute cart totals
+            cart.recompute_totals()
+            
+            # Return updated cart
+            cart_serializer = CartSerializer(cart, context={'request': request})
+            return Response(cart_serializer.data)
+            
+        except CartItem.DoesNotExist:
+            return Response(
+                {'error': 'Product not found in cart'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+    except ValidationError as e:
+        return Response(
+            {'error': str(e)}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    except Exception as e:
+        return Response(
+            {'error': 'Failed to remove item from cart'}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@extend_schema(
+    summary="Clear Cart",
+    description="Remove all items from the shopping cart. "
+                "For guest users, include X-Session-Key header.",
+    parameters=[
+        OpenApiParameter(
+            name='X-Session-Key',
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.HEADER,
+            description='Session key for guest users (required if not authenticated)',
+            required=False,
+        ),
+    ],
+    responses={
+        200: CartSerializer,
+        404: {
+            'description': 'Cart not found',
+            'examples': {
+                'application/json': {
+                    'error': 'Cart not found'
+                }
+            }
+        }
+    },
+    tags=['Cart']
+)
+@api_view(['DELETE'])
+@permission_classes([AllowAny])
+def clear_cart(request):
+    """Clear all items from cart."""
+    try:
+        cart = get_or_create_cart(request)
+        
+        # Delete all cart items
+        cart.items.all().delete()
+        
+        # Recompute cart totals (should be all zeros now)
+        cart.recompute_totals()
+        
+        # Return empty cart
+        cart_serializer = CartSerializer(cart, context={'request': request})
+        return Response(cart_serializer.data)
+        
+    except ValidationError as e:
+        return Response(
+            {'error': str(e)}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    except Exception as e:
+        return Response(
+            {'error': 'Failed to clear cart'}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@extend_schema(
+    summary="Update Cart Item Quantity",
+    description="Update the quantity of a specific product in the shopping cart. "
+                "For guest users, include X-Session-Key header.",
+    parameters=[
+        OpenApiParameter(
+            name='X-Session-Key',
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.HEADER,
+            description='Session key for guest users (required if not authenticated)',
+            required=False,
+        ),
+    ],
+    request=UpdateCartItemSerializer,
+    responses={
+        200: CartSerializer,
+        400: {
+            'description': 'Validation error',
+            'examples': {
+                'application/json': {
+                    'error': 'Product not found in cart'
+                }
+            }
+        }
+    },
+    tags=['Cart']
+)
+@api_view(['PUT'])
+@permission_classes([AllowAny])
+def update_cart_item(request):
+    """Update quantity of item in cart."""
+    try:
+        cart = get_or_create_cart(request)
+        serializer = UpdateCartItemSerializer(data=request.data)
+        
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        data = serializer.validated_data
+        product_id = data['product']
+        new_quantity = data['quantity']
+        
+        # Find the cart item to update
+        try:
+            cart_item = CartItem.objects.get(
+                cart=cart,
+                product_id=product_id
+            )
+            
+            # Update quantity
+            cart_item.quantity = new_quantity
+            cart_item.save()
+            
+            # Recompute cart totals
+            cart.recompute_totals()
+            
+            # Return updated cart
+            cart_serializer = CartSerializer(cart, context={'request': request})
+            return Response(cart_serializer.data)
+            
+        except CartItem.DoesNotExist:
+            return Response(
+                {'error': 'Product not found in cart'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+    except ValidationError as e:
+        return Response(
+            {'error': str(e)}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    except Exception as e:
+        return Response(
+            {'error': 'Failed to update cart item'}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+

@@ -103,3 +103,30 @@ class AddToCartSerializer(serializers.Serializer):
             except Size.DoesNotExist:
                 raise serializers.ValidationError("Size not found")
         return value
+    
+
+class DeleteFromCartSerializer(serializers.Serializer):
+    product = serializers.IntegerField(help_text="Product ID")
+
+    def validate_product(self, value):
+        from apps.products.models import Product
+        try:
+            product = Product.objects.get(pk=value)
+            return value
+        except Product.DoesNotExist:
+            raise serializers.ValidationError("Product not found")
+
+
+class UpdateCartItemSerializer(serializers.Serializer):
+    product = serializers.IntegerField(help_text="Product ID")
+    quantity = serializers.IntegerField(min_value=1, help_text="New quantity (must be at least 1)")
+
+    def validate_product(self, value):
+        from apps.products.models import Product
+        try:
+            product = Product.objects.get(pk=value)
+            if not product.is_active:
+                raise serializers.ValidationError("Product is not available")
+            return value
+        except Product.DoesNotExist:
+            raise serializers.ValidationError("Product not found")
