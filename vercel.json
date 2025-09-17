@@ -4,9 +4,17 @@
     {
       "src": "api/index.py",
       "use": "@vercel/python"
+    },
+    {
+      "src": "api/test.py",
+      "use": "@vercel/python"
     }
   ],
   "routes": [
+    {
+      "src": "/test",
+      "dest": "/api/test.py"
+    },
     {
       "src": "/(.*)",
       "dest": "/api/index.py"
@@ -18,6 +26,9 @@
   "functions": {
     "api/index.py": {
       "maxDuration": 30
+    },
+    "api/test.py": {
+      "maxDuration": 10
     }
   }
 }
