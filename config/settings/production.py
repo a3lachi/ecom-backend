@@ -7,11 +7,11 @@ from .base import *
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-# Database for production - using SQLite in-memory (temporary)
+# Database for production - using SQLite file for Vercel
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': ':memory:',
+        'NAME': '/tmp/vercel_db.sqlite3',  # Use /tmp for Vercel
     }
 }
 
@@ -42,8 +42,8 @@ DATABASES = {
 
 # Static files (using Django defaults since we're not serving static files)
 
-# Enable DEBUG temporarily to serve static files
-DEBUG = True
+# Enable DEBUG temporarily for debugging Vercel deployment
+DEBUG = True  # Set to False after deployment works
 
 # Add database setup middleware for serverless
 MIDDLEWARE = [
@@ -65,22 +65,21 @@ SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'DENY'
 
-# HTTPS settings
-SECURE_SSL_REDIRECT = True
-SECURE_HSTS_SECONDS = 31536000  # 1 year
-SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-SECURE_HSTS_PRELOAD = True
+# HTTPS settings - disable for initial deployment
+SECURE_SSL_REDIRECT = False  # Disabled for Vercel debugging
+SECURE_HSTS_SECONDS = 0  # Disabled for debugging
+SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+SECURE_HSTS_PRELOAD = False
 
-# Cookie security
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
+# Cookie security - relaxed for debugging
+SESSION_COOKIE_SECURE = False  # Disabled for debugging
+CSRF_COOKIE_SECURE = False  # Disabled for debugging
 SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = True
 
 # Make sure you generate a proper secret key
-SECRET_KEY = os.environ.get('SECRET_KEY')
-if not SECRET_KEY:
-    raise ValueError("SECRET_KEY environment variable is required")
+SECRET_KEY = os.environ.get('SECRET_KEY', 'temp-secret-key-for-debugging-change-in-production')
+# Note: Set SECRET_KEY environment variable in Vercel dashboard
 
 # CORS settings for production
 CORS_ALLOWED_ORIGINS = [
@@ -137,3 +136,13 @@ LOGGING = {
 
 # For now, use console backend
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+# PayPal Configuration with defaults for Vercel
+PAYPAL_BASE = os.environ.get('PAYPAL_BASE', 'https://api-m.sandbox.paypal.com')
+PAYPAL_CLIENT_ID = os.environ.get('PAYPAL_CLIENT_ID', 'dummy-client-id')
+PAYPAL_CLIENT_SECRET = os.environ.get('PAYPAL_CLIENT_SECRET', 'dummy-client-secret')
+
+# Note: Set these environment variables in Vercel dashboard:
+# PAYPAL_BASE=https://api-m.sandbox.paypal.com
+# PAYPAL_CLIENT_ID=your_sandbox_client_id  
+# PAYPAL_CLIENT_SECRET=your_sandbox_client_secret

@@ -14,5 +14,10 @@
   ],
   "env": {
     "DJANGO_SETTINGS_MODULE": "config.settings.production"
+  },
+  "functions": {
+    "api/index.py": {
+      "maxDuration": 30
+    }
   }
 }
