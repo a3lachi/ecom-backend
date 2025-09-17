@@ -2,26 +2,18 @@
   "version": 2,
   "builds": [
     {
+      "src": "api/hello.py",
+      "use": "@vercel/python"
+    },
+    {
       "src": "api/index.py",
-      "use": "@vercel/python"
-    },
-    {
-      "src": "api/test.py",
-      "use": "@vercel/python"
-    },
-    {
-      "src": "api/simple.py",
       "use": "@vercel/python"
     }
   ],
   "routes": [
     {
-      "src": "/simple",
-      "dest": "/api/simple.py"
-    },
-    {
-      "src": "/test",
-      "dest": "/api/test.py"
+      "src": "/hello",
+      "dest": "/api/hello.py"
     },
     {
       "src": "/(.*)",
@@ -35,7 +27,7 @@
     "api/index.py": {
       "maxDuration": 30
     },
-    "api/test.py": {
+    "api/hello.py": {
       "maxDuration": 10
     }
   }
