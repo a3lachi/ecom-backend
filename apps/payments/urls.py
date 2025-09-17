@@ -1,5 +1,13 @@
 from django.urls import path
+from . import views
 
 urlpatterns = [
-    # payments endpoints will be added here
+    # Payment management
+    path('methods/', views.list_payment_methods, name='list_payment_methods'),
+    path('create/', views.create_payment, name='create_payment'),
+    path('status/<str:payment_id>/', views.get_payment_status, name='get_payment_status'),
+    
+    # PayPal callback URLs
+    path('paypal/success/', views.paypal_success, name='paypal_success'),
+    path('paypal/cancel/', views.paypal_cancel, name='paypal_cancel'),
 ]

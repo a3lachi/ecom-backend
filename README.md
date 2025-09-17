@@ -36,15 +36,33 @@ A modern, scalable Django REST API backend for e-commerce applications built wit
   - Address types (shipping, billing, other)
   - Default address management
 
+#### ✅ Implemented  
+- **Products**: Complete product catalog with categories, colors, sizes
+  - Product models with image galleries and metadata
+  - Category hierarchy with nested structure  
+  - Color and size variant management
+  - Tag system for product categorization
+- **Cart**: Advanced shopping cart system
+  - User and guest cart support via session keys
+  - Cart item management with product snapshots
+  - Discount and adjustment system with coupons
+  - Automatic total calculations and currency support
+- **Orders**: Comprehensive order management
+  - Complete order lifecycle tracking
+  - Multi-status order processing
+  - Order item management with pricing snapshots
+  - Shipping and billing address integration
+- **Payments**: Multi-provider payment system with PayPal integration
+  - PayPal Hosted Checkout (redirect-based) implementation
+  - Payment transaction tracking and audit trails
+  - Webhook support for payment status updates
+  - Cart-to-order conversion with rollback capabilities
+  - Support for multiple payment providers (PayPal, Caixa, Bizum, Binance Pay)
+
 #### 🚧 Coming Soon
-- **Products**: Product catalog, categories, search
-- **Cart**: Shopping cart management
-- **Orders**: Order processing, tracking, history
-- **Payments**: Payment gateway integration (Stripe, PayPal)
 - **Inventory**: Stock management, warehouse operations
 - **Shipping**: Shipping calculations, tracking
 - **Reviews**: Product reviews and ratings
-- **Coupons**: Discount and promotion system
 - **Notifications**: Email/SMS notifications
 - **Analytics**: Reporting and analytics
 
@@ -103,19 +121,42 @@ ecom_backend/
 │   │       ├── 0002_address_useraddress_user_addresses_and_more.py
 │   │       ├── 0003_refactor_user_address_relationship.py
 │   │       └── 0004_userprofile_and_more.py
-│   ├── products/                  # Product catalog API (structured app ready for implementation)
-│   │   ├── models.py              # Product models (placeholder)
-│   │   ├── views.py               # Product API views (placeholder)
-│   │   ├── admin.py               # Product admin interface (placeholder)
-│   │   ├── tests.py               # Product tests (placeholder)
-│   │   └── urls.py                # Product URL patterns (placeholder)
-│   ├── cart/                      # Shopping cart API (structured app ready for implementation)
-│   ├── orders/                    # Order management API (structured app ready for implementation)
-│   ├── payments/                  # Payment processing API (structured app ready for implementation)
+│   ├── products/                  # 🛍️ Complete product catalog system
+│   │   ├── models.py              # Product, Category, Color, Size, Tag models with relationships
+│   │   ├── serializers.py         # Product serializers for API responses
+│   │   ├── views.py               # Product API views (list, detail, search)
+│   │   ├── admin.py               # Product admin interface with inlines
+│   │   ├── tests.py               # Product system tests
+│   │   ├── urls.py                # Product URL patterns
+│   │   └── migrations/            # Product database migrations
+│   ├── cart/                      # 🛒 Advanced shopping cart system
+│   │   ├── models.py              # Cart, CartItem, CartAdjustment, Coupon models
+│   │   ├── serializers.py         # Cart serializers for API operations
+│   │   ├── views.py               # Cart management views (add, update, remove items)
+│   │   ├── admin.py               # Cart admin interface
+│   │   ├── tests.py               # Cart functionality tests
+│   │   ├── urls.py                # Cart API endpoints
+│   │   └── migrations/            # Cart database migrations
+│   ├── orders/                    # 📦 Comprehensive order management
+│   │   ├── models.py              # Order, OrderItem, OrderStatusHistory models
+│   │   ├── serializers.py         # Order serializers and validation
+│   │   ├── views.py               # Order processing and tracking views
+│   │   ├── admin.py               # Order admin dashboard
+│   │   ├── tests.py               # Order workflow tests
+│   │   ├── urls.py                # Order API endpoints
+│   │   └── migrations/            # Order database migrations
+│   ├── payments/                  # 💳 Multi-provider payment system
+│   │   ├── models.py              # Payment, PaymentTransaction, PaymentWebhook models
+│   │   ├── serializers.py         # Payment serializers and validation
+│   │   ├── views.py               # Payment processing views (create, success, cancel, webhooks)
+│   │   ├── paypal.py              # PayPal API integration (OAuth2, Orders API, capture)
+│   │   ├── admin.py               # Payment admin dashboard
+│   │   ├── tests.py               # Payment processing tests
+│   │   ├── urls.py                # Payment API endpoints
+│   │   └── migrations/            # Payment database migrations
 │   ├── inventory/                 # Inventory management API (structured app ready for implementation)
 │   ├── shipping/                  # Shipping calculation API (structured app ready for implementation)
 │   ├── reviews/                   # Product reviews API (structured app ready for implementation)
-│   ├── coupons/                   # Coupon system API (structured app ready for implementation)
 │   ├── notifications/             # Notification system API (structured app ready for implementation)
 │   ├── analytics/                 # Analytics and reporting API (structured app ready for implementation)
 │   └── core/                      # Shared utilities and health check
@@ -949,6 +990,283 @@ The `/api/health/` endpoint provides:
 
 Perfect for load balancers and monitoring tools.
 
+## 💳 PayPal Payment Integration
+
+### Overview
+The payment system implements PayPal's **Hosted Checkout** (redirect-based) flow where customers are redirected to PayPal's secure payment page and then returned to your application.
+
+### PayPal Setup
+
+#### 1. Environment Configuration
+```bash
+# .env file
+PAYPAL_BASE=https://api-m.sandbox.paypal.com  # Sandbox URL
+PAYPAL_CLIENT_ID=your_sandbox_client_id
+PAYPAL_CLIENT_SECRET=your_sandbox_client_secret
+```
+
+#### 2. Required Tools
+```bash
+# Install ngrok for testing PayPal callbacks
+brew install ngrok  # macOS
+# or download from https://ngrok.com/
+
+# Start ngrok tunnel
+ngrok http 8000
+
+# Update ALLOWED_HOSTS in settings with your ngrok domain
+ALLOWED_HOSTS=your-ngrok-domain.ngrok-free.app,localhost,127.0.0.1
+```
+
+### PayPal Integration Architecture
+
+#### Payment Flow
+1. **Cart Checkout** → Customer clicks "Pay with PayPal"
+2. **Order Creation** → Backend calls PayPal API to create order
+3. **Redirect to PayPal** → Customer redirected to PayPal approval URL
+4. **Customer Approval** → Customer logs in and approves payment on PayPal
+5. **Return to Merchant** → PayPal redirects back with approval token
+6. **Payment Capture** → Backend captures the approved payment
+7. **Order Completion** → Order status updated, cart converted
+
+#### API Endpoints
+
+##### Payment Creation
+```http
+POST /api/v1/payments/create/
+Authorization: Bearer {access_token}
+Content-Type: application/json
+
+{
+  "payment_method": "PAYPAL",
+  "shipping_address": {
+    "first_name": "John",
+    "last_name": "Doe", 
+    "address_line_1": "123 Main St",
+    "city": "New York",
+    "state_province": "NY",
+    "postal_code": "10001",
+    "country": "US",
+    "phone": "+1234567890"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "payment_id": "uuid-payment-id",
+  "payment_method": "PAYPAL",
+  "amount": "99.99",
+  "currency": "USD",
+  "status": "PENDING",
+  "provider_order_id": "5O190127TN364715T",
+  "approval_url": "https://www.sandbox.paypal.com/checkoutnow?token=5O190127TN364715T"
+}
+```
+
+##### PayPal Callbacks
+```http
+# Success callback (automatic redirect from PayPal)
+GET /api/v1/payments/paypal/success/?token={paypal_token}&PayerID={payer_id}
+
+# Cancel callback (if user cancels)  
+GET /api/v1/payments/paypal/cancel/?token={paypal_token}
+```
+
+#### Implementation Details
+
+##### 1. PayPal API Integration (`apps/payments/paypal.py`)
+```python
+def create_order(amount: float, currency: str, order_number: str, 
+                return_url: Optional[str] = None, cancel_url: Optional[str] = None) -> Dict:
+    """Create a PayPal order for payment"""
+    token = _get_access_token()
+    payload = {
+        "intent": "CAPTURE",
+        "purchase_units": [{
+            "reference_id": order_number,
+            "amount": {"currency_code": currency, "value": f"{amount:.2f}"}
+        }],
+        "application_context": {
+            "return_url": return_url, 
+            "cancel_url": cancel_url,
+            "user_action": "PAY_NOW"  # Skip review step
+        }
+    }
+    # Creates order and returns approval URL + order ID
+```
+
+##### 2. Cart-to-Order Conversion with Rollback
+```python
+def create_payment(request):
+    """Create payment from active cart with atomic rollback"""
+    cart = Cart.objects.get(user=request.user, status=Cart.Status.ACTIVE)
+    
+    with transaction.atomic():
+        # Convert cart to order
+        order = _create_order_from_cart(cart, shipping_address, billing_address)
+        cart.status = cart.Status.CONVERTED
+        cart.save()
+        
+        try:
+            # Create PayPal order
+            paypal_response = create_order(
+                amount=float(cart.grand_total),
+                currency=cart.currency,
+                order_number=order.order_number,
+                return_url=f"{base_url}/api/v1/payments/paypal/success/",
+                cancel_url=f"{base_url}/api/v1/payments/paypal/cancel/"
+            )
+            
+            # Create payment record
+            payment = Payment.objects.create(
+                order=order,
+                payment_method=payment_method,
+                amount=cart.grand_total,
+                currency=cart.currency,
+                provider_order_id=paypal_response['id'],
+                provider_response=paypal_response
+            )
+            
+            return JsonResponse({
+                "payment_id": payment.id,
+                "approval_url": next(link['href'] for link in paypal_response['links'] if link['rel'] == 'approve')
+            })
+            
+        except Exception as e:
+            # Rollback cart status on payment creation failure
+            cart.status = cart.Status.ACTIVE
+            cart.save()
+            order.delete()
+            raise
+```
+
+##### 3. Payment Success Handler
+```python
+def paypal_success(request):
+    """Handle successful PayPal payment approval"""
+    token = request.GET.get('token')
+    payer_id = request.GET.get('PayerID')
+    
+    # Find payment by provider order ID
+    payment = Payment.objects.get(provider_order_id=token)
+    
+    try:
+        # Capture the approved payment
+        capture_response = capture_order(token)
+        
+        # Update payment status
+        payment.status = Payment.Status.COMPLETED
+        payment.provider_response.update(capture_response)
+        payment.save()
+        
+        # Update order status
+        payment.order.status = Order.Status.CONFIRMED
+        payment.order.save()
+        
+        return JsonResponse({
+            "message": "Payment completed successfully",
+            "payment_id": payment.id,
+            "order_number": payment.order.order_number
+        })
+        
+    except PayPalError as e:
+        # Payment capture failed
+        payment.status = Payment.Status.FAILED
+        payment.save()
+        return JsonResponse({"error": str(e)}, status=400)
+```
+
+### Testing PayPal Integration
+
+#### 1. Setup Test Environment
+```bash
+# Start Django server
+DJANGO_SETTINGS_MODULE=config.settings.development python3 manage.py runserver 8000
+
+# Start ngrok tunnel (separate terminal)
+ngrok http 8000
+
+# Update .env with ngrok URL
+# Add ngrok domain to ALLOWED_HOSTS in development.py
+```
+
+#### 2. Create Test Payment
+```python
+# simple_payment_test.py
+import requests
+
+# Create cart and add items first
+# Then create payment
+data = {
+    'payment_method': 'PAYPAL',
+    'shipping_address': {
+        'first_name': 'John',
+        'last_name': 'Doe',
+        'address_line_1': '123 Test Street',
+        'city': 'Test City',
+        'state_province': 'Test State',
+        'postal_code': '12345',
+        'country': 'US',
+        'phone': '+1234567890'
+    }
+}
+
+response = requests.post(
+    f"{NGROK_URL}/api/v1/payments/create/",
+    headers={'Authorization': f'Bearer {token}'},
+    json=data
+)
+
+# Visit approval_url in browser to complete payment
+```
+
+#### 3. PayPal Sandbox Accounts
+- **Business Account**: For receiving payments (your app)
+- **Buyer Account**: For testing payments (customer)
+
+Create test accounts at: https://developer.paypal.com/developer/accounts/
+
+### Security Features
+
+#### 1. Transaction Audit Trail
+- Complete payment transaction logging
+- PayPal response storage for debugging
+- Payment status history tracking
+
+#### 2. Error Handling & Rollback
+- Atomic cart-to-order conversion
+- Automatic rollback on payment failures
+- Graceful error responses
+
+#### 3. Webhook Support (Ready)
+- Webhook endpoint for PayPal notifications
+- Signature verification (to be implemented)
+- Idempotent payment processing
+
+### Production Considerations
+
+#### 1. Environment Variables
+```bash
+# Production settings
+PAYPAL_BASE=https://api-m.paypal.com  # Live PayPal URL
+PAYPAL_CLIENT_ID=live_client_id
+PAYPAL_CLIENT_SECRET=live_client_secret
+```
+
+#### 2. Security Enhancements
+- Implement webhook signature verification
+- Add payment amount validation
+- Set up fraud detection rules
+- Configure proper SSL certificates
+
+#### 3. Monitoring & Logging
+- Monitor payment success/failure rates
+- Log all PayPal API responses
+- Set up alerts for payment failures
+- Track conversion metrics
+
 ## 🆘 Troubleshooting
 
 ### Common Issues
@@ -968,6 +1286,22 @@ Perfect for load balancers and monitoring tools.
 ```bash
 # Reset migrations (development only)
 python manage.py migrate --fake-initial
+```
+
+**PayPal Integration Issues**
+```bash
+# Check PayPal credentials
+echo $PAYPAL_CLIENT_ID
+echo $PAYPAL_CLIENT_SECRET
+
+# Verify ngrok tunnel is active
+curl https://your-domain.ngrok-free.app/api/health/
+
+# Check cart has items and totals
+python debug_cart.py
+
+# Verify payment creation logs
+tail -f logs/django.log
 ```
 
 ## 📄 License

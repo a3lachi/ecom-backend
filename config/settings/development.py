@@ -6,7 +6,7 @@ from .base import *
 
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '248c50000662.ngrok-free.app']
 
 # Use SQLite for development if PostgreSQL is not available
 DATABASES = {
