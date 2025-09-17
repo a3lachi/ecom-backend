@@ -45,10 +45,9 @@ DATABASES = {
 # Enable DEBUG temporarily for debugging Vercel deployment
 DEBUG = True  # Set to False after deployment works
 
-# Add database setup middleware for serverless
+# Remove problematic middleware for initial deployment
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'apps.core.middleware.DatabaseSetupMiddleware',  # Add database setup
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
