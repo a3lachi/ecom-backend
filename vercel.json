@@ -8,9 +8,17 @@
     {
       "src": "api/test.py",
       "use": "@vercel/python"
+    },
+    {
+      "src": "api/simple.py",
+      "use": "@vercel/python"
     }
   ],
   "routes": [
+    {
+      "src": "/simple",
+      "dest": "/api/simple.py"
+    },
     {
       "src": "/test",
       "dest": "/api/test.py"
