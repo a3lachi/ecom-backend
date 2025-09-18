@@ -54,6 +54,7 @@ class handler(BaseHTTPRequestHandler):
             error_response = {
                 'error': 'Swagger docs endpoint failed',
                 'path': '/api/docs/',
+                'timestamp': str(__import__('datetime').datetime.now()),
                 'exception': {
                     'type': type(e).__name__,
                     'message': str(e),
