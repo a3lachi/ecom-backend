@@ -37,11 +37,11 @@
   "rewrites": [
     {
       "source": "/api/docs",
-      "destination": "/api/swagger_test"
+      "destination": "/api/index?docs=swagger"
     },
     {
       "source": "/api/docs/",
-      "destination": "/api/swagger_test"
+      "destination": "/api/index?docs=swagger"
     }
   ]
 }

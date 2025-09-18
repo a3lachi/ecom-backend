@@ -23,10 +23,10 @@ class handler(BaseHTTPRequestHandler):
             parsed_url = urlparse(self.path)
             query_params = parse_qs(parsed_url.query)
             
-            # If docs=true parameter, serve Swagger docs
+            # If docs parameter, serve Swagger docs
             if 'docs' in query_params:
                 docs_value = query_params['docs'][0].lower() if query_params['docs'] else ''
-                if docs_value == 'true':
+                if docs_value in ['true', 'swagger']:
                     return self._serve_swagger_docs()
             
             # If debug=true parameter, show Django setup diagnostics
