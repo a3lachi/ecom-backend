@@ -29,16 +29,19 @@
     },
     "api/docs.py": {
       "maxDuration": 30
+    },
+    "api/swagger_test.py": {
+      "maxDuration": 30
     }
   },
   "rewrites": [
     {
       "source": "/api/docs",
-      "destination": "/api/payment_test?swagger=true"
+      "destination": "/api/swagger_test"
     },
     {
       "source": "/api/docs/",
-      "destination": "/api/payment_test?swagger=true"
+      "destination": "/api/swagger_test"
     }
   ]
 }

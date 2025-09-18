@@ -16,7 +16,8 @@ os.environ['DJANGO_SETTINGS_MODULE'] = 'config.settings.vercel'
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
         try:
-            # TEMPORARY: Always serve Swagger docs to test functionality
+            # TEMPORARY: Always serve Swagger docs to test functionality  
+            # Force function update with comment change
             return self._serve_swagger_docs()
             
             # Test PayPal import without full Django setup
