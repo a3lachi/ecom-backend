@@ -20,6 +20,9 @@
     },
     "api/products.py": {
       "maxDuration": 20
+    },
+    "api/django_debug.py": {
+      "maxDuration": 30
     }
   }
 }
