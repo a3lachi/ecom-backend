@@ -32,20 +32,19 @@ THIRD_PARTY_APPS = [
     'rest_framework_simplejwt.token_blacklist',
 ]
 
-# Add back essential apps now that REST_FRAMEWORK is fixed
+# Add back ALL apps now that we fixed the root cause
 LOCAL_APPS = [
-    'apps.core',  # Should work now
-    'apps.authentication',  # Should work now
-    'apps.users',  # Should work now
-    # Will add these back gradually
-    # 'apps.products',
-    # 'apps.cart', 
-    # 'apps.orders',
-    # 'apps.payments',  # This might be the problematic one
-    # 'apps.reviews',
-    # 'apps.wishlist',
-    # 'apps.comparison',
-    # 'apps.blog',
+    'apps.core',
+    'apps.authentication',
+    'apps.users',
+    'apps.products',
+    'apps.reviews',
+    'apps.cart', 
+    'apps.orders',
+    'apps.payments',  # Should work now with standard JWT auth
+    'apps.wishlist',
+    'apps.comparison',
+    'apps.blog',
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
