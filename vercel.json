@@ -5,6 +5,9 @@
     },
     "api/hello.py": {
       "maxDuration": 10
+    },
+    "api/django_test.py": {
+      "maxDuration": 20
     }
   }
 }
