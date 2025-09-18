@@ -8,8 +8,8 @@ project_dir = Path(__file__).resolve().parent.parent
 if str(project_dir) not in sys.path:
     sys.path.insert(0, str(project_dir))
 
-# Set Django settings module
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.vercel')
+# Set Django settings module - force vercel settings
+os.environ['DJANGO_SETTINGS_MODULE'] = 'config.settings.vercel'
 
 # Initialize database on startup
 def ensure_database():
