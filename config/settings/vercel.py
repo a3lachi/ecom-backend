@@ -32,12 +32,12 @@ THIRD_PARTY_APPS = [
     'rest_framework_simplejwt.token_blacklist',
 ]
 
-# Start with minimal apps to identify the issue
+# Add back essential apps now that REST_FRAMEWORK is fixed
 LOCAL_APPS = [
-    'apps.core',
-    'apps.authentication',
-    'apps.users',
-    # Temporarily disabled to test
+    'apps.core',  # Should work now
+    'apps.authentication',  # Should work now
+    'apps.users',  # Should work now
+    # Will add these back gradually
     # 'apps.products',
     # 'apps.cart', 
     # 'apps.orders',
@@ -89,7 +89,7 @@ DATABASES = {
     }
 }
 
-# Custom User Model
+# Custom User Model - re-enable now that users app is back
 AUTH_USER_MODEL = 'users.User'
 
 # Internationalization
@@ -105,13 +105,14 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# REST Framework
+# REST Framework - simplified for debugging
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'apps.authentication.authentication.SessionAwareJWTAuthentication',
+        # 'apps.authentication.authentication.SessionAwareJWTAuthentication',  # Causes circular import
+        'rest_framework_simplejwt.authentication.JWTAuthentication',  # Use standard JWT for now
     ),
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticated',
+        'rest_framework.permissions.AllowAny',  # Allow any for debugging
     ],
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',

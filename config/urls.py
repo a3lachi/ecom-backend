@@ -21,11 +21,11 @@ urlpatterns = [
     path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
     path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
     
-    # API endpoints - minimal set for debugging
+    # Essential URLs that should work now
     path('api/v1/auth/', include('apps.authentication.urls')),
     path('api/v1/users/', include('apps.users.urls')),
     path('api/health/', include('apps.core.urls')),
-    # Temporarily disabled to identify the issue
+    # Will add these back gradually
     # path('api/v1/products/', include('apps.products.urls')),
     # path('api/v1/cart/', include('apps.cart.urls')),
     # path('api/v1/wishlist/', include('apps.wishlist.urls')),
