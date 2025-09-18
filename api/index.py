@@ -24,8 +24,10 @@ class handler(BaseHTTPRequestHandler):
             query_params = parse_qs(parsed_url.query)
             
             # If docs=true parameter, serve Swagger docs
-            if 'docs' in query_params and query_params['docs'][0].lower() == 'true':
-                return self._serve_swagger_docs()
+            if 'docs' in query_params:
+                docs_value = query_params['docs'][0].lower() if query_params['docs'] else ''
+                if docs_value == 'true':
+                    return self._serve_swagger_docs()
             
             # If debug=true parameter, show Django setup diagnostics
             if 'debug' in query_params and query_params['debug'][0].lower() == 'true':
@@ -143,11 +145,16 @@ class handler(BaseHTTPRequestHandler):
             import django
             from django.conf import settings
             from django.test import RequestFactory
-            from drf_spectacular.views import SpectacularSwaggerView
             
             # Initialize Django if not already done
             if not settings.configured:
                 django.setup()
+            
+            # Try importing the Swagger view
+            try:
+                from drf_spectacular.views import SpectacularSwaggerView
+            except ImportError as e:
+                raise Exception(f"drf_spectacular not available: {e}")
             
             # Create Django request factory
             factory = RequestFactory()
@@ -171,19 +178,35 @@ class handler(BaseHTTPRequestHandler):
             # Send content
             if hasattr(response, 'content'):
                 self.wfile.write(response.content)
+            else:
+                self.wfile.write(b'No content in response')
                 
         except Exception as e:
             import traceback
             
-            # Send error response
+            # Send detailed error response for debugging
             error_response = {
                 'error': 'Swagger docs failed in index endpoint',
+                'requested_url': self.path,
+                'django_configured': False,
+                'installed_apps': [],
                 'exception': {
                     'type': type(e).__name__,
                     'message': str(e),
                     'traceback': traceback.format_exc()
                 }
             }
+            
+            # Try to get Django configuration info for debugging
+            try:
+                import django
+                from django.conf import settings
+                if settings.configured:
+                    error_response['django_configured'] = True
+                    error_response['installed_apps'] = list(settings.INSTALLED_APPS)
+                    error_response['has_drf_spectacular'] = 'drf_spectacular' in settings.INSTALLED_APPS
+            except:
+                pass
             
             self.send_response(500)
             self.send_header('Content-type', 'application/json')
