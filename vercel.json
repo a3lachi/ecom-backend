@@ -23,6 +23,27 @@
     },
     "api/django_debug.py": {
       "maxDuration": 30
+    },
+    "api/django_app.py": {
+      "maxDuration": 60
     }
-  }
+  },
+  "rewrites": [
+    {
+      "source": "/api/docs/(.*)",
+      "destination": "/api/django_app?path=/api/docs/$1"
+    },
+    {
+      "source": "/api/schema/(.*)",
+      "destination": "/api/django_app?path=/api/schema/$1"
+    },
+    {
+      "source": "/api/v1/(.*)",
+      "destination": "/api/django_app?path=/api/v1/$1"
+    },
+    {
+      "source": "/api/health/(.*)",
+      "destination": "/api/django_app?path=/api/health/$1"
+    }
+  ]
 }
