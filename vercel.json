@@ -11,6 +11,9 @@
     },
     "api/minimal_django.py": {
       "maxDuration": 15
+    },
+    "api/payment_test.py": {
+      "maxDuration": 15
     }
   }
 }
