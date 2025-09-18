@@ -17,6 +17,9 @@
     },
     "api/health.py": {
       "maxDuration": 15
+    },
+    "api/products.py": {
+      "maxDuration": 20
     }
   }
 }

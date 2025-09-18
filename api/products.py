@@ -22,18 +22,30 @@ class handler(BaseHTTPRequestHandler):
             if not settings.configured:
                 django.setup()
             
-            # Simple health check without using Django views
-            from datetime import datetime
-            
+            # Simple products endpoint without full Django views
             response = {
-                'status': 'healthy',
-                'timestamp': datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
-                'version': '1.0.0',
+                'message': 'Products API endpoint',
+                'status': 'working',
                 'environment': 'vercel',
-                'database': 'sqlite3',
-                'django_version': list(django.VERSION),
-                'settings_module': 'config.settings.vercel'
+                'note': 'This is a simplified test endpoint to verify Django model access',
+                'endpoint': '/api/products',
+                'methods': ['GET'],
+                'description': 'Basic products endpoint for testing Django functionality on Vercel'
             }
+            
+            # Try to access a Django model if possible
+            try:
+                from apps.products.models import Product
+                product_count = Product.objects.count()
+                response['data'] = {
+                    'total_products': product_count,
+                    'model_access': 'successful'
+                }
+            except Exception as model_error:
+                response['data'] = {
+                    'model_access': 'failed',
+                    'error': str(model_error)
+                }
             
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
@@ -44,7 +56,7 @@ class handler(BaseHTTPRequestHandler):
         except Exception as e:
             import traceback
             error_response = {
-                'error': 'Health check failed',
+                'error': 'Products endpoint failed',
                 'details': str(e),
                 'type': type(e).__name__,
                 'traceback': traceback.format_exc()

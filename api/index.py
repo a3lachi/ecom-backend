@@ -16,7 +16,11 @@ class handler(BaseHTTPRequestHandler):
     def do_GET(self):
         try:
             import django
-            django.setup()
+            from django.conf import settings
+            
+            # Initialize Django if not already done
+            if not settings.configured:
+                django.setup()
             
             # Simple response showing Django is working
             response = {
@@ -28,7 +32,8 @@ class handler(BaseHTTPRequestHandler):
                     '/api/payment_test - PayPal integration test',
                     '/api/hello - Basic test endpoint'
                 ],
-                'django_version': django.VERSION,
+                'django_version': list(django.VERSION),
+                'settings_module': 'config.settings.vercel',
                 'apps_loaded': [
                     'core', 'authentication', 'users', 'products',
                     'cart', 'orders', 'payments', 'wishlist', 
