@@ -18,22 +18,21 @@ class handler(BaseHTTPRequestHandler):
             import django
             from django.conf import settings
             from django.test import RequestFactory
-            from drf_spectacular.views import SpectacularSwaggerView
             
             # Initialize Django if not already done
             if not settings.configured:
                 django.setup()
             
+            # Import the Swagger view
+            from drf_spectacular.views import SpectacularSwaggerView
+            
             # Create Django request factory
             factory = RequestFactory()
             request = factory.get('/api/docs/')
             
-            # Create the Swagger view
-            view = SpectacularSwaggerView()
-            view.setup(request)
-            
-            # Get the response
-            response = view.get(request)
+            # Create the Swagger view and call get method
+            view = SpectacularSwaggerView.as_view()
+            response = view(request)
             
             # Send HTTP response
             self.send_response(response.status_code)
@@ -46,6 +45,9 @@ class handler(BaseHTTPRequestHandler):
             # Send content
             if hasattr(response, 'content'):
                 self.wfile.write(response.content)
+            else:
+                # Fallback content
+                self.wfile.write(b'Swagger docs content not available')
             
         except Exception as e:
             import traceback
