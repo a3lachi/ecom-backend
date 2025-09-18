@@ -18,34 +18,33 @@ class handler(BaseHTTPRequestHandler):
             import django
             django.setup()
             
-            # Simple response showing Django is working
-            response = {
-                'message': 'Django backend is working!',
-                'status': 'operational',
-                'environment': 'vercel',
-                'available_endpoints': [
-                    '/api/health - Health check endpoint',
-                    '/api/payment_test - PayPal integration test',
-                    '/api/hello - Basic test endpoint'
-                ],
-                'django_version': django.VERSION,
-                'apps_loaded': [
-                    'core', 'authentication', 'users', 'products',
-                    'cart', 'orders', 'payments', 'wishlist', 
-                    'comparison', 'blog'
-                ]
-            }
+            from django.http import HttpRequest
+            from apps.core.views import HealthCheckView
+            
+            # Create a mock request
+            request = HttpRequest()
+            request.method = 'GET'
+            request.path = '/api/health/'
+            
+            # Get the view response
+            view = HealthCheckView()
+            response = view.get(request)
             
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
             self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
-            self.wfile.write(json.dumps(response, indent=2).encode())
+            
+            # Convert Django response to JSON
+            if hasattr(response, 'data'):
+                self.wfile.write(json.dumps(response.data, indent=2).encode())
+            else:
+                self.wfile.write(response.content)
             
         except Exception as e:
             import traceback
             error_response = {
-                'error': 'Django initialization failed',
+                'error': 'Health check failed',
                 'details': str(e),
                 'type': type(e).__name__,
                 'traceback': traceback.format_exc()
