@@ -27,6 +27,10 @@ class handler(BaseHTTPRequestHandler):
             if 'docs' in query_params and query_params['docs'][0].lower() == 'true':
                 return self._serve_swagger_docs()
             
+            # If debug=true parameter, show Django setup diagnostics
+            if 'debug' in query_params and query_params['debug'][0].lower() == 'true':
+                return self._debug_django_setup()
+            
             # Initialize Django if not already done
             if not settings.configured:
                 django.setup()
@@ -71,6 +75,67 @@ class handler(BaseHTTPRequestHandler):
             self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
             self.wfile.write(json.dumps(error_response, indent=2).encode())
+    
+    def _debug_django_setup(self):
+        """Debug Django setup process step by step"""
+        debug_info = {
+            'step': 'starting',
+            'errors': [],
+            'success': [],
+            'current_time': str(__import__('datetime').datetime.now())
+        }
+        
+        try:
+            # Step 1: Import Django
+            debug_info['step'] = 'importing_django'
+            import django
+            debug_info['success'].append(f'Django imported, version: {django.VERSION}')
+            
+            # Step 2: Import settings
+            debug_info['step'] = 'importing_settings'
+            from django.conf import settings
+            debug_info['success'].append('Django settings imported')
+            debug_info['settings_configured'] = settings.configured
+            
+            if settings.configured:
+                debug_info['success'].append('Django already configured')
+                debug_info['installed_apps'] = list(settings.INSTALLED_APPS)
+                debug_info['databases'] = settings.DATABASES
+            else:
+                # Step 3: Try Django setup
+                debug_info['step'] = 'django_setup'
+                django.setup()
+                debug_info['success'].append('Django setup completed')
+                debug_info['installed_apps'] = list(settings.INSTALLED_APPS)
+                debug_info['databases'] = settings.DATABASES
+            
+            # Step 4: Try importing apps
+            debug_info['step'] = 'importing_apps'
+            try:
+                from apps.core.models import User
+                debug_info['success'].append('Core models imported')
+            except Exception as e:
+                debug_info['errors'].append(f'Core models import failed: {str(e)}')
+            
+            debug_info['step'] = 'completed'
+            debug_info['final_status'] = 'success'
+            
+        except Exception as e:
+            import traceback
+            debug_info['errors'].append(f'Step {debug_info["step"]} failed: {str(e)}')
+            debug_info['final_status'] = 'failed'
+            debug_info['exception'] = {
+                'type': type(e).__name__,
+                'message': str(e),
+                'traceback': traceback.format_exc()
+            }
+        
+        # Send response
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.end_headers()
+        self.wfile.write(json.dumps(debug_info, indent=2).encode())
     
     def _serve_swagger_docs(self):
         """Serve Swagger documentation"""
@@ -125,3 +190,64 @@ class handler(BaseHTTPRequestHandler):
             self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
             self.wfile.write(json.dumps(error_response, indent=2).encode())
+    
+    def _debug_django_setup(self):
+        """Debug Django setup process step by step"""
+        debug_info = {
+            'step': 'starting',
+            'errors': [],
+            'success': [],
+            'current_time': str(__import__('datetime').datetime.now())
+        }
+        
+        try:
+            # Step 1: Import Django
+            debug_info['step'] = 'importing_django'
+            import django
+            debug_info['success'].append(f'Django imported, version: {django.VERSION}')
+            
+            # Step 2: Import settings
+            debug_info['step'] = 'importing_settings'
+            from django.conf import settings
+            debug_info['success'].append('Django settings imported')
+            debug_info['settings_configured'] = settings.configured
+            
+            if settings.configured:
+                debug_info['success'].append('Django already configured')
+                debug_info['installed_apps'] = list(settings.INSTALLED_APPS)
+                debug_info['databases'] = settings.DATABASES
+            else:
+                # Step 3: Try Django setup
+                debug_info['step'] = 'django_setup'
+                django.setup()
+                debug_info['success'].append('Django setup completed')
+                debug_info['installed_apps'] = list(settings.INSTALLED_APPS)
+                debug_info['databases'] = settings.DATABASES
+            
+            # Step 4: Try importing apps
+            debug_info['step'] = 'importing_apps'
+            try:
+                from apps.core.models import User
+                debug_info['success'].append('Core models imported')
+            except Exception as e:
+                debug_info['errors'].append(f'Core models import failed: {str(e)}')
+            
+            debug_info['step'] = 'completed'
+            debug_info['final_status'] = 'success'
+            
+        except Exception as e:
+            import traceback
+            debug_info['errors'].append(f'Step {debug_info["step"]} failed: {str(e)}')
+            debug_info['final_status'] = 'failed'
+            debug_info['exception'] = {
+                'type': type(e).__name__,
+                'message': str(e),
+                'traceback': traceback.format_exc()
+            }
+        
+        # Send response
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.end_headers()
+        self.wfile.write(json.dumps(debug_info, indent=2).encode())
