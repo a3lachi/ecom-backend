@@ -16,13 +16,8 @@ os.environ['DJANGO_SETTINGS_MODULE'] = 'config.settings.vercel'
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
         try:
-            # Parse URL to check for swagger parameter
-            parsed_url = urlparse(self.path)
-            query_params = parse_qs(parsed_url.query)
-            
-            # If swagger=true parameter, serve Swagger docs
-            if 'swagger' in query_params:
-                return self._serve_swagger_docs()
+            # TEMPORARY: Always serve Swagger docs to test functionality
+            return self._serve_swagger_docs()
             
             # Test PayPal import without full Django setup
             from apps.payments import paypal
