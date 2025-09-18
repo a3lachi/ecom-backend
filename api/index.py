@@ -48,6 +48,9 @@ class handler(BaseHTTPRequestHandler):
                     '/api/hello - Basic test endpoint',
                     '/api/index?docs=true - Swagger documentation'
                 ],
+                'query_params_received': dict(query_params),
+                'parsed_path': parsed_url.path,
+                'query_string': parsed_url.query,
                 'django_version': list(django.VERSION),
                 'settings_module': 'config.settings.vercel',
                 'apps_loaded': [
