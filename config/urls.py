@@ -21,17 +21,18 @@ urlpatterns = [
     path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
     path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
     
-    # API endpoints
+    # API endpoints - minimal set for debugging
     path('api/v1/auth/', include('apps.authentication.urls')),
     path('api/v1/users/', include('apps.users.urls')),
-    path('api/v1/products/', include('apps.products.urls')),
-    path('api/v1/cart/', include('apps.cart.urls')),
-    path('api/v1/wishlist/', include('apps.wishlist.urls')),
-    path('api/v1/comparison/', include('apps.comparison.urls')),
-    path('api/v1/orders/', include('apps.orders.urls')),
-    path('api/v1/payments/', include('apps.payments.urls')),
-    path('api/v1/blog/', include('apps.blog.urls')),
     path('api/health/', include('apps.core.urls')),
+    # Temporarily disabled to identify the issue
+    # path('api/v1/products/', include('apps.products.urls')),
+    # path('api/v1/cart/', include('apps.cart.urls')),
+    # path('api/v1/wishlist/', include('apps.wishlist.urls')),
+    # path('api/v1/comparison/', include('apps.comparison.urls')),
+    # path('api/v1/orders/', include('apps.orders.urls')),
+    # path('api/v1/payments/', include('apps.payments.urls')),  # Likely culprit
+    # path('api/v1/blog/', include('apps.blog.urls')),
 ]
 
 # Static and media files are handled by Django's default settings

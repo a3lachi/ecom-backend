@@ -32,18 +32,20 @@ THIRD_PARTY_APPS = [
     'rest_framework_simplejwt.token_blacklist',
 ]
 
+# Start with minimal apps to identify the issue
 LOCAL_APPS = [
     'apps.core',
     'apps.authentication',
     'apps.users',
-    'apps.products',
-    'apps.cart', 
-    'apps.orders',
-    'apps.payments',
-    'apps.reviews',
-    'apps.wishlist',
-    'apps.comparison',
-    'apps.blog',
+    # Temporarily disabled to test
+    # 'apps.products',
+    # 'apps.cart', 
+    # 'apps.orders',
+    # 'apps.payments',  # This might be the problematic one
+    # 'apps.reviews',
+    # 'apps.wishlist',
+    # 'apps.comparison',
+    # 'apps.blog',
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
