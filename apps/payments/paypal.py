@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 BASE = os.environ.get("PAYPAL_BASE", "https://api-m.sandbox.paypal.com")
 CLIENT_ID = os.environ.get("PAYPAL_CLIENT_ID")
 SECRET = os.environ.get("PAYPAL_CLIENT_SECRET")
+WEBHOOK_ID = os.environ.get("PAYPAL_WEBHOOK_ID")
 
 class PayPalError(Exception):
     """Custom PayPal API exception"""
@@ -104,3 +105,31 @@ def get_order_details(order_id: str) -> Dict:
     except requests.RequestException as e:
         logger.error(f"PayPal get order error: {e}")
         raise PayPalError(f"Failed to get PayPal order details: {e}")
+
+
+def verify_webhook(headers: dict, body: dict) -> bool:
+    """
+    Server-side verification via PayPal's verify-webhook-signature endpoint.
+    Returns True only when verification_status == 'SUCCESS'.
+    """
+    if not WEBHOOK_ID:
+        raise PayPalError("PayPal webhook ID not configured")
+    
+    token = _get_access_token()
+    payload = {
+        "auth_algo": headers.get("PAYPAL-AUTH-ALGO"),
+        "cert_url": headers.get("PAYPAL-CERT-URL"),
+        "transmission_id": headers.get("PAYPAL-TRANSMISSION-ID"),
+        "transmission_sig": headers.get("PAYPAL-TRANSMISSION-SIG"),
+        "transmission_time": headers.get("PAYPAL-TRANSMISSION-TIME"),
+        "webhook_id": WEBHOOK_ID,           # YOUR webhook id from the dashboard
+        "webhook_event": body,              # the exact JSON payload PayPal sent
+    }
+    r = requests.post(
+        f"{BASE}/v1/notifications/verify-webhook-signature",
+        json=payload,
+        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+        timeout=15,
+    )
+    r.raise_for_status()
+    return r.json().get("verification_status") == "SUCCESS"

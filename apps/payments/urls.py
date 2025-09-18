@@ -10,4 +10,8 @@ urlpatterns = [
     # PayPal callback URLs
     path('paypal/success/', views.paypal_success, name='paypal_success'),
     path('paypal/cancel/', views.paypal_cancel, name='paypal_cancel'),
+    
+    # PayPal webhook
+    path('webhooks/paypal/', views.paypal_webhook, name='paypal_webhook'),
+    path('webhooks/paypal/test/', views.paypal_webhook_test, name='paypal_webhook_test'),
 ]

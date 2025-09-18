@@ -9,12 +9,12 @@ from drf_spectacular.utils import extend_schema, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
 import logging
 
-from .models import Payment, PaymentMethod, PaymentTransaction
+from .models import Payment, PaymentMethod, PaymentTransaction, PaymentWebhook
 from .serializers import (
     CreatePaymentSerializer, PaymentSerializer, PaymentMethodSerializer,
     PaymentDetailSerializer
 )
-from .paypal import create_order, capture_order, PayPalError
+from .paypal import create_order, capture_order, PayPalError, verify_webhook
 
 logger = logging.getLogger(__name__)
 
@@ -625,4 +625,410 @@ def paypal_cancel(request):
         return Response({
             'success': False,
             'error': 'Payment cancellation processing failed'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@extend_schema(
+    summary="PayPal Webhook Handler",
+    description="Handle PayPal webhook events for payment notifications",
+    request={
+        'application/json': {
+            'type': 'object',
+            'description': 'PayPal webhook event payload'
+        }
+    },
+    responses={
+        200: {
+            'description': 'Webhook processed successfully',
+            'examples': {
+                'application/json': {
+                    'success': True,
+                    'message': 'Webhook processed successfully'
+                }
+            }
+        },
+        400: {
+            'description': 'Invalid webhook or verification failed',
+            'examples': {
+                'application/json': {
+                    'success': False,
+                    'error': 'Webhook verification failed'
+                }
+            }
+        }
+    },
+    tags=['Payments']
+)
+@api_view(['POST'])
+@permission_classes([AllowAny])  # PayPal webhook doesn't include auth
+def paypal_webhook(request):
+    """Handle PayPal webhook events."""
+    try:
+        # TODO: Implement webhook processing
+        body = request.data
+        headers = {k.upper(): v for k, v in request.headers.items()}
+        # 1. Verify webhook signature using verify_webhook()
+        try:
+            ok = verify_webhook(headers, body)
+        except Exception:
+            return Response({"detail": "Verification failure"}, status=status.HTTP_400_BAD_REQUEST)
+        if not ok:
+            return Response({"detail": "Invalid signature"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 2. Process different event types
+        event_type = body.get('event_type')
+        logger.info(f"PayPal webhook received: {event_type}")
+        
+        # Get PayPal method for webhook storage
+        paypal_method = get_object_or_404(PaymentMethod, provider=PaymentMethod.Provider.PAYPAL)
+        
+        # Store webhook event
+        webhook_record = PaymentWebhook.objects.create(
+            payment_method=paypal_method,
+            event_type=event_type,
+            event_id=body.get('id', ''),
+            payload=body,
+            headers=headers
+        )
+        
+        # 3. Process specific event types
+        if event_type == 'PAYMENT.CAPTURE.COMPLETED':
+            _handle_payment_capture_completed(body, webhook_record)
+        elif event_type == 'PAYMENT.CAPTURE.DENIED':
+            _handle_payment_capture_denied(body, webhook_record)
+        elif event_type == 'PAYMENT.CAPTURE.REFUNDED':
+            _handle_payment_capture_refunded(body, webhook_record)
+        elif event_type == 'CHECKOUT.ORDER.APPROVED':
+            _handle_checkout_order_approved(body, webhook_record)
+        else:
+            logger.info(f"Unhandled PayPal webhook event: {event_type}")
+        
+        # Mark webhook as processed
+        webhook_record.processed = True
+        webhook_record.processed_at = timezone.now()
+        webhook_record.save()
+        
+        return Response({
+            'success': True,
+            'message': f'Webhook {event_type} processed successfully'
+        })
+        
+    except Exception as e:
+        logger.error(f"PayPal webhook error: {e}")
+        return Response({
+            'success': False,
+            'error': 'Webhook processing failed'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+def _handle_payment_capture_completed(body, webhook_record):
+    """Handle PAYMENT.CAPTURE.COMPLETED webhook event."""
+    try:
+        # Extract PayPal order ID from webhook payload
+        resource = body.get('resource', {})
+        supplementary_data = resource.get('supplementary_data', {})
+        related_ids = supplementary_data.get('related_ids', {})
+        order_id = related_ids.get('order_id')
+        
+        if not order_id:
+            logger.error("No order_id found in PAYMENT.CAPTURE.COMPLETED webhook")
+            return
+        
+        # Find payment by PayPal order ID
+        try:
+            payment = Payment.objects.get(provider_transaction_id=order_id)
+        except Payment.DoesNotExist:
+            logger.error(f"Payment not found for PayPal order: {order_id}")
+            return
+        
+        # Link webhook to payment
+        webhook_record.payment = payment
+        webhook_record.save()
+        
+        # Only update if not already completed (idempotency)
+        if payment.status != Payment.Status.COMPLETED:
+            with transaction.atomic():
+                # Update payment status
+                payment.status = Payment.Status.COMPLETED
+                payment.processed_at = timezone.now()
+                payment.provider_response = {
+                    **payment.provider_response,
+                    'capture_webhook': body
+                }
+                payment.save()
+                
+                # Create transaction record
+                PaymentTransaction.objects.create(
+                    payment=payment,
+                    action=PaymentTransaction.Action.CAPTURED,
+                    amount=payment.amount,
+                    provider_transaction_id=order_id,
+                    provider_response=body,
+                    success=True,
+                    notes="Payment captured via webhook"
+                )
+                
+                # Update order status
+                order = payment.order
+                order.payment_status = order.PaymentStatus.PAID
+                if order.status == order.Status.PENDING:
+                    order.status = order.Status.CONFIRMED
+                    order.confirmed_at = timezone.now()
+                order.save()
+                
+                logger.info(f"Payment {payment.payment_id} completed via webhook")
+        
+    except Exception as e:
+        logger.error(f"Error handling PAYMENT.CAPTURE.COMPLETED webhook: {e}")
+        webhook_record.error_message = str(e)
+        webhook_record.save()
+
+
+def _handle_payment_capture_denied(body, webhook_record):
+    """Handle PAYMENT.CAPTURE.DENIED webhook event."""
+    try:
+        # Extract PayPal order ID from webhook payload
+        resource = body.get('resource', {})
+        supplementary_data = resource.get('supplementary_data', {})
+        related_ids = supplementary_data.get('related_ids', {})
+        order_id = related_ids.get('order_id')
+        
+        if not order_id:
+            logger.error("No order_id found in PAYMENT.CAPTURE.DENIED webhook")
+            return
+        
+        # Find payment by PayPal order ID
+        try:
+            payment = Payment.objects.get(provider_transaction_id=order_id)
+        except Payment.DoesNotExist:
+            logger.error(f"Payment not found for PayPal order: {order_id}")
+            return
+        
+        # Link webhook to payment
+        webhook_record.payment = payment
+        webhook_record.save()
+        
+        with transaction.atomic():
+            # Update payment status to failed
+            payment.status = Payment.Status.FAILED
+            payment.failure_reason = f"Payment capture denied: {resource.get('reason_code', 'Unknown')}"
+            payment.provider_response = {
+                **payment.provider_response,
+                'denied_webhook': body
+            }
+            payment.save()
+            
+            # Create failed transaction record
+            PaymentTransaction.objects.create(
+                payment=payment,
+                action=PaymentTransaction.Action.FAILED,
+                provider_transaction_id=order_id,
+                provider_response=body,
+                success=False,
+                error_message=payment.failure_reason,
+                notes="Payment capture denied via webhook"
+            )
+            
+            # Revert cart to ACTIVE so user can try again
+            from apps.cart.models import Cart
+            try:
+                cart = Cart.objects.get(
+                    user=payment.user, 
+                    status=Cart.Status.CONVERTED
+                )
+                cart.status = Cart.Status.ACTIVE
+                cart.save()
+                logger.info(f"Cart reverted to ACTIVE for user {payment.user.id}")
+            except Cart.DoesNotExist:
+                logger.warning(f"No converted cart found for user {payment.user.id}")
+            
+            logger.info(f"Payment {payment.payment_id} denied via webhook")
+        
+    except Exception as e:
+        logger.error(f"Error handling PAYMENT.CAPTURE.DENIED webhook: {e}")
+        webhook_record.error_message = str(e)
+        webhook_record.save()
+
+
+def _handle_payment_capture_refunded(body, webhook_record):
+    """Handle PAYMENT.CAPTURE.REFUNDED webhook event."""
+    try:
+        # Extract PayPal order ID from webhook payload
+        resource = body.get('resource', {})
+        supplementary_data = resource.get('supplementary_data', {})
+        related_ids = supplementary_data.get('related_ids', {})
+        order_id = related_ids.get('order_id')
+        
+        if not order_id:
+            logger.error("No order_id found in PAYMENT.CAPTURE.REFUNDED webhook")
+            return
+        
+        # Find payment by PayPal order ID
+        try:
+            payment = Payment.objects.get(provider_transaction_id=order_id)
+        except Payment.DoesNotExist:
+            logger.error(f"Payment not found for PayPal order: {order_id}")
+            return
+        
+        # Link webhook to payment
+        webhook_record.payment = payment
+        webhook_record.save()
+        
+        with transaction.atomic():
+            # Check refund amount
+            refund_amount = float(resource.get('amount', {}).get('value', 0))
+            
+            # Update payment status
+            if refund_amount >= float(payment.amount):
+                payment.status = Payment.Status.REFUNDED
+            else:
+                payment.status = Payment.Status.PARTIALLY_REFUNDED
+            
+            payment.provider_response = {
+                **payment.provider_response,
+                'refund_webhook': body
+            }
+            payment.save()
+            
+            # Create refund transaction record
+            PaymentTransaction.objects.create(
+                payment=payment,
+                action=PaymentTransaction.Action.REFUNDED,
+                amount=refund_amount,
+                provider_transaction_id=order_id,
+                provider_response=body,
+                success=True,
+                notes=f"Refund of ${refund_amount} processed via webhook"
+            )
+            
+            logger.info(f"Payment {payment.payment_id} refunded (${refund_amount}) via webhook")
+        
+    except Exception as e:
+        logger.error(f"Error handling PAYMENT.CAPTURE.REFUNDED webhook: {e}")
+        webhook_record.error_message = str(e)
+        webhook_record.save()
+
+
+def _handle_checkout_order_approved(body, webhook_record):
+    """Handle CHECKOUT.ORDER.APPROVED webhook event."""
+    try:
+        # Extract PayPal order ID from webhook payload
+        resource = body.get('resource', {})
+        order_id = resource.get('id')
+        
+        if not order_id:
+            logger.error("No order_id found in CHECKOUT.ORDER.APPROVED webhook")
+            return
+        
+        # Find payment by PayPal order ID
+        try:
+            payment = Payment.objects.get(provider_transaction_id=order_id)
+        except Payment.DoesNotExist:
+            logger.error(f"Payment not found for PayPal order: {order_id}")
+            return
+        
+        # Link webhook to payment
+        webhook_record.payment = payment
+        webhook_record.save()
+        
+        # Only update if still processing (idempotency)
+        if payment.status == Payment.Status.PROCESSING:
+            with transaction.atomic():
+                # Update payment with approval info
+                payment.provider_response = {
+                    **payment.provider_response,
+                    'approval_webhook': body
+                }
+                payment.save()
+                
+                # Create authorization transaction record
+                PaymentTransaction.objects.create(
+                    payment=payment,
+                    action=PaymentTransaction.Action.AUTHORIZED,
+                    amount=payment.amount,
+                    provider_transaction_id=order_id,
+                    provider_response=body,
+                    success=True,
+                    notes="Order approved via webhook"
+                )
+                
+                logger.info(f"Payment {payment.payment_id} approved via webhook")
+        
+    except Exception as e:
+        logger.error(f"Error handling CHECKOUT.ORDER.APPROVED webhook: {e}")
+        webhook_record.error_message = str(e)
+        webhook_record.save()
+
+
+@extend_schema(
+    summary="PayPal Webhook Test Handler (Development Only)",
+    description="Test webhook processing without signature verification - for development testing only",
+    request={
+        'application/json': {
+            'type': 'object',
+            'description': 'PayPal webhook event payload'
+        }
+    },
+    responses={
+        200: {
+            'description': 'Webhook processed successfully',
+            'examples': {
+                'application/json': {
+                    'success': True,
+                    'message': 'Test webhook processed successfully'
+                }
+            }
+        }
+    },
+    tags=['Payments']
+)
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def paypal_webhook_test(request):
+    """Test webhook handler without verification - for development only."""
+    try:
+        body = request.data
+        event_type = body.get('event_type')
+        logger.info(f"PayPal TEST webhook received: {event_type}")
+        
+        # Get PayPal method for webhook storage
+        paypal_method = get_object_or_404(PaymentMethod, provider=PaymentMethod.Provider.PAYPAL)
+        
+        # Store webhook event
+        webhook_record = PaymentWebhook.objects.create(
+            payment_method=paypal_method,
+            event_type=event_type,
+            event_id=body.get('id', ''),
+            payload=body,
+            headers={'test': 'true'}
+        )
+        
+        # Process specific event types (same logic as main webhook)
+        if event_type == 'PAYMENT.CAPTURE.COMPLETED':
+            _handle_payment_capture_completed(body, webhook_record)
+        elif event_type == 'PAYMENT.CAPTURE.DENIED':
+            _handle_payment_capture_denied(body, webhook_record)
+        elif event_type == 'PAYMENT.CAPTURE.REFUNDED':
+            _handle_payment_capture_refunded(body, webhook_record)
+        elif event_type == 'CHECKOUT.ORDER.APPROVED':
+            _handle_checkout_order_approved(body, webhook_record)
+        else:
+            logger.info(f"Unhandled PayPal test webhook event: {event_type}")
+        
+        # Mark webhook as processed
+        webhook_record.processed = True
+        webhook_record.processed_at = timezone.now()
+        webhook_record.save()
+        
+        return Response({
+            'success': True,
+            'message': f'Test webhook {event_type} processed successfully',
+            'webhook_id': webhook_record.id
+        })
+        
+    except Exception as e:
+        logger.error(f"PayPal test webhook error: {e}")
+        return Response({
+            'success': False,
+            'error': f'Test webhook processing failed: {str(e)}'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

@@ -13,30 +13,38 @@ class PaymentMethodSerializer(serializers.ModelSerializer):
         # Exclude sensitive configuration data
 
 
+class AddressSerializer(serializers.Serializer):
+    """Serializer for address fields in payment creation"""
+    first_name = serializers.CharField(max_length=100, help_text="First name")
+    last_name = serializers.CharField(max_length=100, help_text="Last name")
+    company = serializers.CharField(max_length=100, required=False, help_text="Company name (optional)")
+    address_line_1 = serializers.CharField(max_length=255, help_text="Address line 1")
+    address_line_2 = serializers.CharField(max_length=255, required=False, help_text="Address line 2 (optional)")
+    city = serializers.CharField(max_length=100, help_text="City")
+    state_province = serializers.CharField(max_length=100, help_text="State or province")
+    postal_code = serializers.CharField(max_length=20, help_text="Postal/ZIP code")
+    country = serializers.CharField(max_length=100, help_text="Country")
+    phone = serializers.CharField(max_length=20, required=False, help_text="Phone number (optional)")
+
+
 class CreatePaymentSerializer(serializers.Serializer):
     payment_method = serializers.CharField(
         help_text="Payment method provider (PAYPAL, CAIXA, BIZUM, BINANCE_PAY)"
     )
-    shipping_address = serializers.DictField(
-        required=False,
-        help_text="Shipping address information",
-        child=serializers.CharField()
+    shipping_address = AddressSerializer(
+        required=True,
+        help_text="Shipping address information"
     )
-    billing_address = serializers.DictField(
+    billing_address = AddressSerializer(
         required=False,
-        help_text="Billing address information (optional, defaults to shipping)",
-        child=serializers.CharField()
+        help_text="Billing address information (optional, defaults to shipping)"
     )
 
-    def validate_shipping_address(self, value):
-        """Validate required shipping address fields"""
-        required_fields = ['first_name', 'last_name', 'address_line_1', 'city', 'state_province', 'postal_code', 'country']
-        
-        for field in required_fields:
-            if not value.get(field):
-                raise serializers.ValidationError(f"Shipping address field '{field}' is required")
-        
-        return value
+    def validate(self, data):
+        """Validate the entire payload"""
+        # The AddressSerializer will handle validation of individual fields
+        # We can add any cross-field validation here if needed
+        return data
 
     def validate_payment_method(self, value):
         try:
