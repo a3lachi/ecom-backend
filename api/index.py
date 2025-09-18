@@ -15,17 +15,16 @@ os.environ['DJANGO_SETTINGS_MODULE'] = 'config.settings.vercel'
 def ensure_database():
     """Ensure database is set up for serverless environment"""
     try:
-        # Skip database setup for now to debug
-        print("Skipping database setup for debugging")
-        # from django.core.management import execute_from_command_line
-        # from django.db import connection
+        from django.core.management import execute_from_command_line
+        from django.db import connection
         
-        # # Check if tables exist
-        # with connection.cursor() as cursor:
-        #     cursor.execute("SELECT name FROM sqlite_master WHERE type='table' LIMIT 1;")
-        #     if not cursor.fetchone():
-        #         # Run migrations if no tables exist
-        #         execute_from_command_line(['manage.py', 'migrate', '--run-syncdb'])
+        # Check if tables exist
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' LIMIT 1;")
+            if not cursor.fetchone():
+                # Run migrations if no tables exist
+                print("Running database migrations...")
+                execute_from_command_line(['manage.py', 'migrate', '--run-syncdb'])
     except Exception as e:
         print(f"Database setup warning: {e}")
 
