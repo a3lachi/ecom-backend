@@ -8,6 +8,9 @@
     },
     "api/django_test.py": {
       "maxDuration": 20
+    },
+    "api/minimal_django.py": {
+      "maxDuration": 15
     }
   }
 }
