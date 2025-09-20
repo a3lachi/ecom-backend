@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CaixaBank Payment Test - OFFICIAL REDSYS SPEC</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .form-group { margin: 15px 0; }
+        button { background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .info { background: #f8f9fa; padding: 15px; border-left: 4px solid #007bff; margin: 20px 0; }
+        .warning { background: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 20px 0; }
+        .success { background: #d4edda; padding: 15px; border-left: 4px solid #28a745; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏦 CaixaBank Payment Test - OFFICIAL REDSYS SPECIFICATION</h1>
+        
+        <div class="success">
+            <h3>✅ FINAL IMPLEMENTATION BASED ON OFFICIAL PDF:</h3>
+            <ul>
+                <li><strong>✅ 3DES-CBC Mode:</strong> Using CBC mode with zero IV (per Redsys PDF)</li>
+                <li><strong>✅ Order Format:</strong> 7454FICIAL (10 chars, starts with digits)</li>
+                <li><strong>✅ Key Handling:</strong> Proper 24-byte key preparation</li>
+                <li><strong>✅ Order Padding:</strong> 8-byte alignment for 3DES</li>
+                <li><strong>✅ Signature:</strong> wyuYnsnwGTYN+vicEkPcymTmZO77XfHc8OrvlKV0o4Y=</li>
+                <li><strong>✅ Amount:</strong> €599.99 (59999 cents)</li>
+                <li><strong>✅ Currency:</strong> EUR (978)</li>
+            </ul>
+        </div>
+
+        <div class="info">
+            <h3>Payment Details:</h3>
+            <ul>
+                <li><strong>Order:</strong> ORD-20250919-OFFICIAL → Redsys: 7454FICIAL</li>
+                <li><strong>Amount:</strong> €599.99 (59999 cents)</li>
+                <li><strong>Product:</strong> Online Payment</li>
+                <li><strong>Customer:</strong> John Doe</li>
+                <li><strong>Currency:</strong> EUR ✅</li>
+                <li><strong>Merchant Code:</strong> 367691359</li>
+                <li><strong>Terminal:</strong> 1</li>
+            </ul>
+        </div>
+
+        <div class="warning">
+            <strong>⚠️ THIS SHOULD WORK NOW:</strong>
+            <ol>
+                <li>Implemented exactly per Redsys official PDF documentation</li>
+                <li>3DES-CBC with zero IV as specified</li>
+                <li>Proper order number handling and padding</li>
+                <li>HMAC-SHA256 with derived key</li>
+                <li>Should show €599.99 instead of "0,00 Euros"</li>
+            </ol>
+        </div>
+
+        <form action="https://sis-t.redsys.es:25443/sis/realizarPago" method="POST" id="caixaPaymentForm">
+            <input type="hidden" name="Ds_SignatureVersion" value="HMAC_SHA256_V1">
+            <input type="hidden" name="Ds_MerchantParameters" value="eyJEU19NRVJDSEFOVF9BTU9VTlQiOiI1OTk5OSIsIkRTX01FUkNIQU5UX09SREVSIjoiNzQ1NEZJQ0lBTCIsIkRTX01FUkNIQU5UX01FUkNIQU5UQ09ERSI6IjM2NzY5MTM1OSIsIkRTX01FUkNIQU5UX0NVUlJFTkNZIjoiOTc4IiwiRFNfTUVSQ0hBTlRfVFJBTlNBQ1RJT05UWVBFIjoiMCIsIkRTX01FUkNIQU5UX1RFUk1JTkFMIjoiMSIsIkRTX01FUkNIQU5UX01FUkNIQU5UVVJMIjoiaHR0cDovL2xvY2FsaG9zdDo4MDAwL2FwaS92MS9wYXltZW50cy9jYWl4YS93ZWJob29rLyIsIkRTX01FUkNIQU5UX1VSTE9LIjoiaHR0cDovL2xvY2FsaG9zdDo4MDAwL2FwaS92MS9wYXltZW50cy9jYWl4YS9zdWNjZXNzLyIsIkRTX01FUkNIQU5UX1VSTEtPIjoiaHR0cDovL2xvY2FsaG9zdDo4MDAwL2FwaS92MS9wYXltZW50cy9jYWl4YS9lcnJvci8iLCJEU19NRVJDSEFOVF9QUk9EVUNUREVTQ1JJUFRJT04iOiJPbmxpbmUgUGF5bWVudCIsIkRTX01FUkNIQU5UX1RJVFVMQVIiOiJKb2huIERvZSJ9">
+            <input type="hidden" name="Ds_Signature" value="wyuYnsnwGTYN+vicEkPcymTmZO77XfHc8OrvlKV0o4Y=">
+            
+            <div class="form-group">
+                <button type="submit">🏦 Pay with CaixaBank (€599.99) - OFFICIAL SPEC</button>
+            </div>
+        </form>
+
+        <div class="info">
+            <h3>🔍 Official Redsys PDF Implementation:</h3>
+            <ol>
+                <li><strong>3DES-CBC Mode:</strong> Using Cipher Block Chaining with zero IV</li>
+                <li><strong>Key Derivation:</strong> 3DES(secret_key, padded_order_number)</li>
+                <li><strong>Order Handling:</strong> Pad to 8 bytes for 3DES block size</li>
+                <li><strong>HMAC-SHA256:</strong> Sign merchant parameters with derived key</li>
+                <li><strong>Base64 Encoding:</strong> Standard Base64 (no URL-safe)</li>
+            </ol>
+        </div>
+
+        <div class="info">
+            <h3>📋 Test Card Data (from CaixaBank email):</h3>
+            <p>Use the test credit card details they provided in your email:</p>
+            <ul>
+                <li><strong>Successful payment:</strong> 4548810000000003 (CVV: 123, Exp: 12/27)</li>
+                <li><strong>Declined payment:</strong> Different test card numbers for error scenarios</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        console.log('🏦 CaixaBank Payment Test Ready - OFFICIAL REDSYS SPECIFICATION');
+        console.log('Form will POST to:', document.getElementById('caixaPaymentForm').action);
+        console.log('Signature: wyuYnsnwGTYN+vicEkPcymTmZO77XfHc8OrvlKV0o4Y=');
+    </script>
+</body>
+</html>

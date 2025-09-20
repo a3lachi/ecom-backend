@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CaixaBank Payment Test - 3DES SIGNATURE</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .form-group { margin: 15px 0; }
+        button { background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .info { background: #f8f9fa; padding: 15px; border-left: 4px solid #007bff; margin: 20px 0; }
+        .warning { background: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 20px 0; }
+        .success { background: #d4edda; padding: 15px; border-left: 4px solid #28a745; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏦 CaixaBank Payment Test - 3DES SIGNATURE</h1>
+        
+        <div class="success">
+            <h3>✅ FINAL FIXES APPLIED:</h3>
+            <ul>
+                <li><strong>✅ 3DES Key Derivation:</strong> Using proper 3DES encryption (not HMAC)</li>
+                <li><strong>✅ Order Format:</strong> 72839FINAL (10 chars, starts with digits)</li>
+                <li><strong>✅ Product Description:</strong> Added required field</li>
+                <li><strong>✅ Signature:</strong> uDLB9MpWZy8zUPuhzfCaeTHvUrHt9kMeyfP/Z6Po8a8=</li>
+                <li><strong>✅ Amount:</strong> €599.99 (59999 cents)</li>
+                <li><strong>✅ Currency:</strong> EUR (978)</li>
+            </ul>
+        </div>
+
+        <div class="info">
+            <h3>Payment Details:</h3>
+            <ul>
+                <li><strong>Order:</strong> ORD-20250919-FINAL → Redsys: 72839FINAL</li>
+                <li><strong>Amount:</strong> €599.99 (59999 cents)</li>
+                <li><strong>Product:</strong> Online Payment</li>
+                <li><strong>Customer:</strong> John Doe</li>
+                <li><strong>Currency:</strong> EUR ✅</li>
+                <li><strong>Merchant Code:</strong> 367691359</li>
+                <li><strong>Terminal:</strong> 1</li>
+            </ul>
+        </div>
+
+        <div class="warning">
+            <strong>⚠️ Instructions:</strong>
+            <ol>
+                <li>Click "Pay with CaixaBank" button below</li>
+                <li>You should now see the correct amount (€599.99) - SIS0042 should be fixed!</li>
+                <li>Enter the test credit card details from CaixaBank email</li>
+                <li>Complete the payment</li>
+                <li>You'll be redirected back to success/error page</li>
+                <li>Check your backend logs for webhook notifications</li>
+            </ol>
+        </div>
+
+        <form action="https://sis-t.redsys.es:25443/sis/realizarPago" method="POST" id="caixaPaymentForm">
+            <input type="hidden" name="Ds_SignatureVersion" value="HMAC_SHA256_V1">
+            <input type="hidden" name="Ds_MerchantParameters" value="eyJEU19NRVJDSEFOVF9BTU9VTlQiOiI1OTk5OSIsIkRTX01FUkNIQU5UX09SREVSIjoiNzI4MzlGSU5BTCIsIkRTX01FUkNIQU5UX01FUkNIQU5UQ09ERSI6IjM2NzY5MTM1OSIsIkRTX01FUkNIQU5UX0NVUlJFTkNZIjoiOTc4IiwiRFNfTUVSQ0hBTlRfVFJBTlNBQ1RJT05UWVBFIjoiMCIsIkRTX01FUkNIQU5UX1RFUk1JTkFMIjoiMSIsIkRTX01FUkNIQU5UX01FUkNIQU5UVVJMIjoiaHR0cDovL2xvY2FsaG9zdDo4MDAwL2FwaS92MS9wYXltZW50cy9jYWl4YS93ZWJob29rLyIsIkRTX01FUkNIQU5UX1VSTE9LIjoiaHR0cDovL2xvY2FsaG9zdDo4MDAwL2FwaS92MS9wYXltZW50cy9jYWl4YS9zdWNjZXNzLyIsIkRTX01FUkNIQU5UX1VSTEtPIjoiaHR0cDovL2xvY2FsaG9zdDo4MDAwL2FwaS92MS9wYXltZW50cy9jYWl4YS9lcnJvci8iLCJEU19NRVJDSEFOVF9QUk9EVUNUREVTQ1JJUFRJT04iOiJPbmxpbmUgUGF5bWVudCIsIkRTX01FUkNIQU5UX1RJVFVMQVIiOiJKb2huIERvZSJ9">
+            <input type="hidden" name="Ds_Signature" value="uDLB9MpWZy8zUPuhzfCaeTHvUrHt9kMeyfP/Z6Po8a8=">
+            
+            <div class="form-group">
+                <button type="submit">🏦 Pay with CaixaBank (€599.99) - 3DES FIXED</button>
+            </div>
+        </form>
+
+        <div class="info">
+            <h3>🔍 What ChatGPT-5 taught us:</h3>
+            <ol>
+                <li><strong>SIS0042 = Signature Error:</strong> The "0,00 €" was caused by invalid signature, not bad amount</li>
+                <li><strong>3DES Key Derivation:</strong> Redsys uses 3DES encryption (not HMAC) to derive signing key from order number</li>
+                <li><strong>Correct Process:</strong> 3DES(secret_key, order) → derived_key → HMAC-SHA256(derived_key, parameters)</li>
+                <li><strong>All Fields Present:</strong> We had all mandatory fields, the signature was the only issue</li>
+            </ol>
+        </div>
+
+        <div class="info">
+            <h3>📋 Test Card Data (from CaixaBank email):</h3>
+            <p>Use the test credit card details they provided in your email:</p>
+            <ul>
+                <li><strong>Successful payment:</strong> 4548810000000003 (CVV: 123, Exp: 12/27)</li>
+                <li><strong>Declined payment:</strong> Different test card numbers for error scenarios</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        console.log('🏦 CaixaBank Payment Test Ready - 3DES SIGNATURE VERSION');
+        console.log('Form will POST to:', document.getElementById('caixaPaymentForm').action);
+        console.log('Signature: uDLB9MpWZy8zUPuhzfCaeTHvUrHt9kMeyfP/Z6Po8a8=');
+    </script>
+</body>
+</html>

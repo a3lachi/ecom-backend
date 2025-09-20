@@ -1,15 +1,15 @@
 import base64, requests
 import logging
-import os
 from typing import Dict, Optional
+from decouple import config
 
 logger = logging.getLogger(__name__)
 
-# Use os.environ for better Vercel compatibility
-BASE = os.environ.get("PAYPAL_BASE", "https://api-m.sandbox.paypal.com")
-CLIENT_ID = os.environ.get("PAYPAL_CLIENT_ID")
-SECRET = os.environ.get("PAYPAL_CLIENT_SECRET")
-WEBHOOK_ID = os.environ.get("PAYPAL_WEBHOOK_ID")
+# PayPal environment variables
+BASE = config("PAYPAL_BASE", default="https://api-m.sandbox.paypal.com")
+CLIENT_ID = config("PAYPAL_CLIENT_ID", default=None)
+SECRET = config("PAYPAL_CLIENT_SECRET", default=None)
+WEBHOOK_ID = config("PAYPAL_WEBHOOK_ID", default=None)
 
 class PayPalError(Exception):
     """Custom PayPal API exception"""

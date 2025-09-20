@@ -15,6 +15,7 @@ from .serializers import (
     PaymentDetailSerializer
 )
 from .paypal import create_order, capture_order, PayPalError, verify_webhook
+from .caixa import create_payment_form, process_webhook_response, CaixaError
 
 logger = logging.getLogger(__name__)
 
@@ -131,6 +132,8 @@ def create_payment(request):
                 # Handle different payment methods
                 if payment_method.provider == PaymentMethod.Provider.PAYPAL:
                     return _handle_paypal_payment(payment, request, cart)
+                elif payment_method.provider == PaymentMethod.Provider.CAIXA:
+                    return _handle_caixa_payment(payment, request, cart, shipping_address)
                 else:
                     # For other payment methods, create basic transaction and return info
                     PaymentTransaction.objects.create(
@@ -316,6 +319,85 @@ def _handle_paypal_payment(payment, request, cart):
         
         # PayPal creation failed - this will trigger cart reversion in calling function
         raise PayPalError(f'PayPal payment creation failed: {e}')
+
+
+def _handle_caixa_payment(payment, request, cart, shipping_address):
+    """Handle CaixaBank payment creation."""
+    # Generate callback URLs automatically
+    base_url = f"{request.scheme}://{request.get_host()}"
+    merchant_url = f"{base_url}/api/v1/payments/caixa/webhook/"
+    success_url = f"{base_url}/api/v1/payments/caixa/success/"
+    error_url = f"{base_url}/api/v1/payments/caixa/error/"
+    
+    # Get customer name from shipping address
+    customer_name = None
+    if shipping_address:
+        first_name = shipping_address.get('first_name', '')
+        last_name = shipping_address.get('last_name', '')
+        if first_name or last_name:
+            customer_name = f"{first_name} {last_name}".strip()
+    
+    try:
+        # Create CaixaBank payment form
+        form_data = create_payment_form(
+            amount=float(payment.amount),
+            order_number=payment.order.order_number,
+            merchant_url=merchant_url,
+            success_url=success_url,
+            error_url=error_url,
+            customer_name=customer_name,
+            currency=payment.currency
+        )
+        
+        # Update payment with form data and callback URLs
+        payment.provider_response = form_data
+        payment.success_url = success_url
+        payment.cancel_url = error_url
+        payment.status = Payment.Status.PROCESSING
+        payment.save()
+        
+        # Create CaixaBank form creation transaction
+        PaymentTransaction.objects.create(
+            payment=payment,
+            action=PaymentTransaction.Action.CREATED,
+            amount=payment.amount,
+            provider_response=form_data,
+            success=True,
+            notes="CaixaBank payment form created successfully"
+        )
+        
+        logger.info(f"CaixaBank payment created: {payment.payment_id}")
+        
+        return Response({
+            'payment_id': payment.payment_id,
+            'status': payment.status,
+            'amount': str(payment.amount),
+            'currency': payment.currency,
+            'provider': 'CaixaBank',
+            'form_data': form_data,
+            'message': 'CaixaBank payment form created successfully',
+            'next_action': 'submit_form_to_gateway'
+        }, status=status.HTTP_201_CREATED)
+        
+    except CaixaError as e:
+        logger.error(f"CaixaBank payment creation error: {e}")
+        
+        # Update payment status
+        payment.status = Payment.Status.FAILED
+        payment.failure_reason = str(e)
+        payment.save()
+        
+        # Create failed transaction
+        PaymentTransaction.objects.create(
+            payment=payment,
+            action=PaymentTransaction.Action.FAILED,
+            success=False,
+            error_message=str(e),
+            notes="CaixaBank payment form creation failed"
+        )
+        
+        # CaixaBank creation failed - this will trigger cart reversion in calling function
+        raise CaixaError(f'CaixaBank payment creation failed: {e}')
 
 
 @extend_schema(
@@ -1031,4 +1113,258 @@ def paypal_webhook_test(request):
         return Response({
             'success': False,
             'error': f'Test webhook processing failed: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@extend_schema(
+    summary="CaixaBank Webhook Handler",
+    description="Handle CaixaBank/Redsys webhook notifications for payment status",
+    request={
+        'application/x-www-form-urlencoded': {
+            'type': 'object',
+            'properties': {
+                'Ds_SignatureVersion': {'type': 'string'},
+                'Ds_MerchantParameters': {'type': 'string'},
+                'Ds_Signature': {'type': 'string'}
+            }
+        }
+    },
+    responses={
+        200: {
+            'description': 'Webhook processed successfully',
+            'examples': {
+                'application/json': {
+                    'success': True,
+                    'message': 'Payment processed successfully'
+                }
+            }
+        },
+        400: {
+            'description': 'Invalid webhook or verification failed',
+            'examples': {
+                'application/json': {
+                    'success': False,
+                    'error': 'Invalid signature'
+                }
+            }
+        }
+    },
+    tags=['Payments']
+)
+@api_view(['POST'])
+@permission_classes([AllowAny])  # CaixaBank webhook doesn't include auth
+def caixa_webhook(request):
+    """Handle CaixaBank/Redsys webhook notifications."""
+    try:
+        # Extract form data from webhook
+        form_data = {
+            'Ds_SignatureVersion': request.data.get('Ds_SignatureVersion'),
+            'Ds_MerchantParameters': request.data.get('Ds_MerchantParameters'),
+            'Ds_Signature': request.data.get('Ds_Signature')
+        }
+        
+        logger.info(f"CaixaBank webhook received: {form_data}")
+        
+        # Process webhook response
+        try:
+            payment_data = process_webhook_response(form_data)
+        except CaixaError as e:
+            logger.error(f"CaixaBank webhook verification failed: {e}")
+            return Response({
+                'success': False,
+                'error': 'Webhook verification failed'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Get CaixaBank method for webhook storage
+        caixa_method = get_object_or_404(PaymentMethod, provider=PaymentMethod.Provider.CAIXA)
+        
+        # Store webhook event
+        webhook_record = PaymentWebhook.objects.create(
+            payment_method=caixa_method,
+            event_type='PAYMENT_NOTIFICATION',
+            event_id=payment_data.get('authorization_code', ''),
+            payload=payment_data,
+            headers=dict(request.headers)
+        )
+        
+        # Find payment by order number
+        order_number = payment_data.get('order_number')
+        if not order_number:
+            logger.error("No order number found in CaixaBank webhook")
+            return Response({
+                'success': False,
+                'error': 'Missing order number'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            from apps.orders.models import Order
+            order = Order.objects.get(order_number=order_number)
+            payment = Payment.objects.get(order=order)
+        except (Order.DoesNotExist, Payment.DoesNotExist):
+            logger.error(f"Payment not found for order: {order_number}")
+            return Response({
+                'success': False,
+                'error': 'Payment not found'
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        # Link webhook to payment
+        webhook_record.payment = payment
+        webhook_record.save()
+        
+        with transaction.atomic():
+            if payment_data['is_successful']:
+                # Payment successful
+                payment.status = Payment.Status.COMPLETED
+                payment.processed_at = timezone.now()
+                payment.provider_transaction_id = payment_data.get('authorization_code', '')
+                payment.provider_response = {
+                    **payment.provider_response,
+                    'webhook_response': payment_data
+                }
+                payment.save()
+                
+                # Create successful transaction record
+                PaymentTransaction.objects.create(
+                    payment=payment,
+                    action=PaymentTransaction.Action.CAPTURED,
+                    amount=payment_data['amount'],
+                    provider_transaction_id=payment_data.get('authorization_code', ''),
+                    provider_response=payment_data,
+                    success=True,
+                    notes=f"CaixaBank payment completed via webhook (Response: {payment_data['response_code']})"
+                )
+                
+                # Update order status
+                order.payment_status = order.PaymentStatus.PAID
+                if order.status == order.Status.PENDING:
+                    order.status = order.Status.CONFIRMED
+                    order.confirmed_at = timezone.now()
+                order.save()
+                
+                logger.info(f"CaixaBank payment {payment.payment_id} completed via webhook")
+                
+            else:
+                # Payment failed
+                payment.status = Payment.Status.FAILED
+                payment.failure_reason = f"CaixaBank payment failed: Response code {payment_data['response_code']}"
+                payment.provider_response = {
+                    **payment.provider_response,
+                    'webhook_response': payment_data
+                }
+                payment.save()
+                
+                # Create failed transaction record
+                PaymentTransaction.objects.create(
+                    payment=payment,
+                    action=PaymentTransaction.Action.FAILED,
+                    provider_response=payment_data,
+                    success=False,
+                    error_message=payment.failure_reason,
+                    notes=f"CaixaBank payment failed via webhook (Response: {payment_data['response_code']})"
+                )
+                
+                # Revert cart to ACTIVE so user can try again
+                from apps.cart.models import Cart
+                try:
+                    cart = Cart.objects.get(
+                        user=payment.user, 
+                        status=Cart.Status.CONVERTED
+                    )
+                    cart.status = Cart.Status.ACTIVE
+                    cart.save()
+                    logger.info(f"Cart reverted to ACTIVE for user {payment.user.id}")
+                except Cart.DoesNotExist:
+                    logger.warning(f"No converted cart found for user {payment.user.id}")
+                
+                logger.info(f"CaixaBank payment {payment.payment_id} failed via webhook")
+        
+        # Mark webhook as processed
+        webhook_record.processed = True
+        webhook_record.processed_at = timezone.now()
+        webhook_record.save()
+        
+        return Response({
+            'success': True,
+            'message': 'Payment processed successfully' if payment_data['is_successful'] else 'Payment failure processed'
+        })
+        
+    except Exception as e:
+        logger.error(f"CaixaBank webhook error: {e}")
+        return Response({
+            'success': False,
+            'error': 'Webhook processing failed'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@extend_schema(
+    summary="CaixaBank Payment Success",
+    description="Handle CaixaBank payment success callback. Users are redirected here after successful payment.",
+    responses={
+        200: {
+            'description': 'Payment success handled',
+            'examples': {
+                'application/json': {
+                    'success': True,
+                    'message': 'Payment completed successfully'
+                }
+            }
+        }
+    },
+    tags=['Payments']
+)
+@api_view(['GET', 'POST'])
+@permission_classes([AllowAny])  # CaixaBank callback doesn't include auth
+def caixa_success(request):
+    """Handle CaixaBank payment success callback."""
+    try:
+        logger.info(f"CaixaBank success callback received: {request.data}")
+        
+        return Response({
+            'success': True,
+            'message': 'Payment completed successfully',
+            'note': 'Payment status will be updated via webhook notification'
+        })
+        
+    except Exception as e:
+        logger.error(f"CaixaBank success callback error: {e}")
+        return Response({
+            'success': False,
+            'error': 'Payment success processing failed'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@extend_schema(
+    summary="CaixaBank Payment Error",
+    description="Handle CaixaBank payment error callback. Users are redirected here when payment fails.",
+    responses={
+        200: {
+            'description': 'Payment error handled',
+            'examples': {
+                'application/json': {
+                    'success': False,
+                    'message': 'Payment failed'
+                }
+            }
+        }
+    },
+    tags=['Payments']
+)
+@api_view(['GET', 'POST'])
+@permission_classes([AllowAny])  # CaixaBank callback doesn't include auth
+def caixa_error(request):
+    """Handle CaixaBank payment error callback."""
+    try:
+        logger.info(f"CaixaBank error callback received: {request.data}")
+        
+        return Response({
+            'success': False,
+            'message': 'Payment failed',
+            'note': 'Payment status will be updated via webhook notification'
+        })
+        
+    except Exception as e:
+        logger.error(f"CaixaBank error callback error: {e}")
+        return Response({
+            'success': False,
+            'error': 'Payment error processing failed'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

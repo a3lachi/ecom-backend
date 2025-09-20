@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CaixaBank Test - SHA256</title>
+</head>
+<body>
+    <h1>🏦 CaixaBank Test - HMAC_SHA256_V1</h1>
+    
+    <form action="https://sis-t.redsys.es:25443/sis/realizarPago" method="POST">
+        <input type="hidden" name="Ds_SignatureVersion" value="HMAC_SHA256_V1">
+        <input type="hidden" name="Ds_MerchantParameters" value="eyJEU19NRVJDSEFOVF9BTU9VTlQiOiI1OTk5OSIsIkRTX01FUkNIQU5UX09SREVSIjoiODAzN0FUR1BUNSIsIkRTX01FUkNIQU5UX01FUkNIQU5UQ09ERSI6IjM2NzY5MTM1OSIsIkRTX01FUkNIQU5UX0NVUlJFTkNZIjoiOTc4IiwiRFNfTUVSQ0hBTlRfVFJBTlNBQ1RJT05UWVBFIjoiMCIsIkRTX01FUkNIQU5UX1RFUk1JTkFMIjoiMSIsIkRTX01FUkNIQU5UX01FUkNIQU5UVVJMIjoiaHR0cDovL2xvY2FsaG9zdDo4MDAwL2FwaS92MS9wYXltZW50cy9jYWl4YS93ZWJob29rLyIsIkRTX01FUkNIQU5UX1VSTE9LIjoiaHR0cDovL2xvY2FsaG9zdDo4MDAwL2FwaS92MS9wYXltZW50cy9jYWl4YS9zdWNjZXNzLyIsIkRTX01FUkNIQU5UX1VSTEtPIjoiaHR0cDovL2xvY2FsaG9zdDo4MDAwL2FwaS92MS9wYXltZW50cy9jYWl4YS9lcnJvci8iLCJEU19NRVJDSEFOVF9QUk9EVUNUREVTQ1JJUFRJT04iOiJPbmxpbmUgUGF5bWVudCIsIkRTX01FUkNIQU5UX1RJVFVMQVIiOiJKb2huIERvZSJ9">
+        <input type="hidden" name="Ds_Signature" value="861534bi4ycWure2l579c5Ul00sY7BaUChigJgZ7yCI=">
+        <button type="submit">Test SHA256</button>
+    </form>
+</body>
+</html>

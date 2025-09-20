@@ -14,4 +14,11 @@ urlpatterns = [
     # PayPal webhook
     path('webhooks/paypal/', views.paypal_webhook, name='paypal_webhook'),
     path('webhooks/paypal/test/', views.paypal_webhook_test, name='paypal_webhook_test'),
+    
+    # CaixaBank callback URLs
+    path('caixa/success/', views.caixa_success, name='caixa_success'),
+    path('caixa/error/', views.caixa_error, name='caixa_error'),
+    
+    # CaixaBank webhook
+    path('caixa/webhook/', views.caixa_webhook, name='caixa_webhook'),
 ]
